@@ -316,14 +316,12 @@ async def send_password_change_notification(email: str, username: str):
     </html>
     """
 
-    message = MessageSchema(
+    if not send_email_via_sendgrid(
+        to_email=email,
         subject="Password Changed - StudentsAI",
-        recipients=[email],
-        body=html_content,
-        subtype="html",
-    )
-
-    await get_fastmail().send_message(message)
+        html_content=html_content,
+    ):
+        raise Exception("SendGrid email sending failed")
 
 
 async def send_password_reset_email(email: str, reset_url: str):
@@ -339,13 +337,12 @@ async def send_password_reset_email(email: str, reset_url: str):
     </html>
     """
 
-    message = MessageSchema(
+    if not send_email_via_sendgrid(
+        to_email=email,
         subject="Reset Your Password - StudentsAI",
-        recipients=[email],
-        body=html_content,
-        subtype="html",
-    )
-    await get_fastmail().send_message(message)
+        html_content=html_content,
+    ):
+        raise Exception("SendGrid email sending failed")
 
 
 async def send_account_deletion_email(email: str, confirm_url: str):
@@ -491,10 +488,7 @@ async def send_email_change_verification_step1(
         # Send verification email to current email
         verification_url = f"{settings.frontend_url}/verify-email-change-step1/{token}?new_email={new_email}"
 
-        message = MessageSchema(
-            subject="Confirm Email Change Request",
-            recipients=[current_email],
-            body=f"""
+        html_content = f"""
             <html>
                 <body>
                     <h2>Email Change Request</h2>
@@ -505,11 +499,13 @@ async def send_email_change_verification_step1(
                     <p>If you did not request this change, please ignore this email.</p>
                 </body>
             </html>
-            """,
-            subtype="html",
-        )
-
-        await get_fastmail().send_message(message)
+            """
+        if not send_email_via_sendgrid(
+            to_email=current_email,
+            subject="Confirm Email Change Request",
+            html_content=html_content,
+        ):
+            raise Exception("SendGrid email sending failed")
         return True
 
     except Exception as e:
@@ -540,10 +536,7 @@ async def send_email_change_verification_step2(
         # Send verification email to new email
         verification_url = f"{settings.frontend_url}/verify-email-change-step2/{token}?current_email={get_user_by_id(db, user_id).email}"
 
-        message = MessageSchema(
-            subject="Verify New Email Address",
-            recipients=[new_email],
-            body=f"""
+        html_content = f"""
             <html>
                 <body>
                     <h2>Verify New Email Address</h2>
@@ -554,11 +547,13 @@ async def send_email_change_verification_step2(
                     <p>If you did not request this change, please ignore this email.</p>
                 </body>
             </html>
-            """,
-            subtype="html",
-        )
-
-        await get_fastmail().send_message(message)
+            """
+        if not send_email_via_sendgrid(
+            to_email=new_email,
+            subject="Verify New Email Address",
+            html_content=html_content,
+        ):
+            raise Exception("SendGrid email sending failed")
         return True
 
     except Exception as e:
