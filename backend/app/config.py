@@ -2,6 +2,8 @@
 Configuration management for StudentsAI MVP
 """
 
+from pathlib import Path
+
 from pydantic_settings import BaseSettings
 
 
@@ -65,6 +67,12 @@ class Settings(BaseSettings):
 
     # Redis (optional)
     redis_url: str = "redis://localhost:6379/0"
+
+    # Documents, stored outside the public /uploads static mount
+    document_storage_dir: Path = (
+        Path(__file__).resolve().parent.parent / "storage" / "documents"
+    )
+    max_document_bytes: int = 25 * 1024 * 1024
 
     # Environment
     environment: str = "development"

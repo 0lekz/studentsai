@@ -35,6 +35,7 @@ from .ai_service import (
     generate_flashcards_from_content,
     summarize_content,
 )
+from .api import documents
 from .auth import (
     authenticate_user,
     create_access_token,
@@ -249,6 +250,8 @@ UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "..", "uploads")
 UPLOAD_DIR = os.path.abspath(UPLOAD_DIR)
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+
+app.include_router(documents.router)
 
 
 @app.get("/health")
@@ -2885,6 +2888,7 @@ async def confirm_account_deletion(
         db.rollback()
         raise
 
+    documents.get_document_storage().delete_user_files(uid)
     return SuccessResponse(message="Account deleted")
 
 

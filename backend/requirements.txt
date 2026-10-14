@@ -46,6 +46,9 @@ httpx==0.25.2
 # Utilities
 python-dateutil==2.8.2
 
+# Document ingestion
+pymupdf==1.28.2
+
 # Email verification (NEW)
 fastapi-mail==1.4.1
 sendgrid==6.10.0

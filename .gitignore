@@ -38,6 +38,7 @@ frontend/.env
 
 
 /backend/uploads/
+/backend/storage/
 
 # testing
 /coverage
