@@ -16,7 +16,7 @@ import {
   Check
 } from 'lucide-react'
 
-interface NoteTemplate {
+export interface NoteTemplate {
   id: string
   name: string
   description: string

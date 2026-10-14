@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
+import { type Note } from '@/lib/api'
 import { 
   MoreHorizontal, 
   Copy, 
@@ -17,14 +18,12 @@ import {
   Archive, 
   Star, 
   Tag,
-  Clock,
-  FileText,
   Trash2,
   Edit
 } from 'lucide-react'
 
 interface QuickActionsProps {
-  note: any
+  note: Note & { starred?: boolean; archived?: boolean }
   onEdit?: () => void
   onDelete?: () => void
   onDuplicate?: () => void
@@ -42,9 +41,7 @@ export function QuickActions({
   onDuplicate, 
   onArchive, 
   onStar, 
-  onAddTags, 
-  onExport, 
-  onShare 
+  onAddTags
 }: QuickActionsProps) {
   const [isOpen, setIsOpen] = useState(false)
 

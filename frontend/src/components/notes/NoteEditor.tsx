@@ -16,7 +16,7 @@ interface NoteEditorProps {
   onToggleNotesPanel?: () => void
 }
 
-export function NoteEditor({ note, onSave, onCancel, onNavigateByTitle, showNotesPanel, onToggleNotesPanel }: NoteEditorProps) {
+export function NoteEditor({ note, onSave, onCancel, showNotesPanel, onToggleNotesPanel }: NoteEditorProps) {
   const [title, setTitle] = useState(note?.title || '')
   const [content, setContent] = useState(note?.content || '')
   const [loading, setLoading] = useState(false)
@@ -27,7 +27,7 @@ export function NoteEditor({ note, onSave, onCancel, onNavigateByTitle, showNote
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
 
   const isEditing = !!note
-  const autoSaveTimeoutRef = useRef<NodeJS.Timeout>()
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout>(undefined)
 
   // Track changes
   useEffect(() => {
@@ -96,7 +96,7 @@ export function NoteEditor({ note, onSave, onCancel, onNavigateByTitle, showNote
       setLastSaved(new Date())
       setHasUnsavedChanges(false)
       onSave(savedNote)
-    } catch (err) {
+    } catch {
       setError('Failed to save note')
     } finally {
       setLoading(false)
@@ -120,7 +120,7 @@ export function NoteEditor({ note, onSave, onCancel, onNavigateByTitle, showNote
         const result = await api.summarizeText(content)
         alert(`Summary: ${result.summary}`)
       }
-    } catch (err) {
+    } catch {
       setError('Failed to generate summary')
     } finally {
       setSummarizing(false)

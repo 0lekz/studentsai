@@ -45,7 +45,7 @@ export function SummaryViewer({ text, onClose }: SummaryViewerProps) {
         summaryWords,
         compressionRatio: Math.round((1 - summaryWords / Math.max(1, originalWords)) * 100)
       })
-    } catch (err) {
+    } catch {
       setError('Failed to generate summary')
     } finally {
       setIsLoading(false)

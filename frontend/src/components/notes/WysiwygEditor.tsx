@@ -11,22 +11,16 @@ import { Button } from '@/components/ui/button'
 import { 
   Bold, 
   Italic, 
-  Underline, 
   Strikethrough, 
   List, 
   ListOrdered, 
   Quote, 
   Code, 
   Link as LinkIcon,
-  Image as ImageIcon,
   Heading1,
   Heading2,
   Heading3,
   Minus,
-  Type,
-  AlignLeft,
-  AlignCenter,
-  AlignRight,
   Undo,
   Redo,
   X
@@ -102,7 +96,7 @@ export function WysiwygEditor({
   // Update editor content when prop changes
   useEffect(() => {
     if (editor && content !== editor.getHTML()) {
-      editor.commands.setContent(content, false)
+      editor.commands.setContent(content, { emitUpdate: true })
     }
   }, [content, editor])
 

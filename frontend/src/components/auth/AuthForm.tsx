@@ -71,7 +71,7 @@ export function AuthForm({ onSuccess }: AuthFormProps) {
     try {
       // Redirect to Google OAuth
       window.location.href = `${process.env.NEXT_PUBLIC_API_BASE || process.env.NEXT_PUBLIC_API_URL || ''}/auth/google/login`
-    } catch (err) {
+    } catch {
       setError('Failed to initiate Google sign-in')
     } finally {
       setGoogleLoading(false)

@@ -51,7 +51,7 @@ export function StudyFlowSettings() {
               <Clock className="h-5 w-5 text-gray-600 dark:text-gray-400 mt-0.5 flex-shrink-0" />
               <div className="text-sm text-gray-700 dark:text-gray-300">
                 <p className="font-medium">Advanced Study Features</p>
-                <p className="mt-1">We're working on additional study tools and customization options.</p>
+                <p className="mt-1">We&apos;re working on additional study tools and customization options.</p>
               </div>
             </div>
           </div>

@@ -4,8 +4,7 @@ import { useParams, useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { CheckCircle, XCircle, Loader2, Mail } from "lucide-react"
-import { api } from "@/lib/api"
+import { CheckCircle, XCircle, Loader2 } from "lucide-react"
 
 interface VerificationResponse {
   message: string

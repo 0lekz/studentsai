@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
 
 interface NotesGraphProps {
-  onNodeClick: (nodeId: string) => void
+  onNodeClick?: (nodeId: string) => void
   highlightNodeIds?: string[]
   mode?: 'full' | 'mini'
   anchorNodeId?: string
@@ -288,10 +288,7 @@ export function NotesGraph({ onNodeClick, highlightNodeIds = [], mode = 'full', 
       .attr('transform', `translate(${margin.left},${margin.top})`)
 
     // Node radius helper
-    const nodeRadius = (_d: GraphSimulationNode) => {
-      const base = Math.max(4, 8 * nodeSizeBase)
-      return base
-    }
+    const nodeRadius = () => Math.max(4, 8 * nodeSizeBase)
 
     // Forces
     const chargeForce = forceManyBody().strength(-repelForce * 20)
@@ -301,7 +298,7 @@ export function NotesGraph({ onNodeClick, highlightNodeIds = [], mode = 'full', 
         .id((d: GraphSimulationNode) => d.id)
         .distance(Math.max(20, linkDistance * 5))
         .strength(linkForce)
-    const collideF = forceCollide<GraphSimulationNode>().radius((d: GraphSimulationNode) => nodeRadius(d) + 6).iterations(2)
+    const collideF = forceCollide<GraphSimulationNode>().radius(() => nodeRadius() + 6).iterations(2)
 
     const simulation = forceSimulation<GraphSimulationNode>(simulationNodes)
       .force('link', linkF)
@@ -340,7 +337,7 @@ export function NotesGraph({ onNodeClick, highlightNodeIds = [], mode = 'full', 
       .data(simulationNodes)
       .enter()
       .append('circle')
-      .attr('r', (d: GraphSimulationNode) => nodeRadius(d))
+      .attr('r', () => nodeRadius())
       .attr('fill', isDark ? '#fb923c' : '#f97316')
       .attr('stroke', isDark ? '#f97316' : '#ea580c')
       .attr('stroke-width', mode === 'mini' ? 1.5 : 2)
@@ -383,7 +380,7 @@ export function NotesGraph({ onNodeClick, highlightNodeIds = [], mode = 'full', 
       const next = new Set(focusSet)
       if (next.has(String(d.id))) next.delete(String(d.id)); else next.add(String(d.id))
       setFocusSet(next)
-      onNodeClickRef.current && onNodeClickRef.current(d.id)
+      onNodeClickRef.current?.(d.id)
     })
 
     // Add labels
@@ -516,7 +513,7 @@ export function NotesGraph({ onNodeClick, highlightNodeIds = [], mode = 'full', 
 
       labels
         .attr('x', (d: GraphSimulationNode) => d.x || 0)
-        .attr('y', (d: GraphSimulationNode) => (d.y || 0) + nodeRadius(d) + 13)
+        .attr('y', (d: GraphSimulationNode) => (d.y || 0) + nodeRadius() + 13)
     })
 
     // Hide tooltip on clicks

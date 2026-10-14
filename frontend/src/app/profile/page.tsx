@@ -4,7 +4,7 @@
  */
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Header } from '@/components/layout/Header'
 import { ProfileHeader } from '@/components/profile/ProfileHeader'
 import { StatsRow } from '@/components/profile/StatsRow'
@@ -13,8 +13,6 @@ import { ActivityList } from '@/components/profile/ActivityList'
 import { api, type ActivityDayCount, type EventItem, type ProfileSummary } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Brain, TrendingUp, Target, Clock } from 'lucide-react'
-import Link from 'next/link'
 
 export default function ProfilePage() {
   const [summary, setSummary] = useState<ProfileSummary | null>(null)
@@ -78,7 +76,8 @@ export default function ProfilePage() {
         const flashcards = await api.getUserFlashcards()
         const stats = {
           totalCards: flashcards.length,
-          dueToday: flashcards.filter(f => f.next_review && new Date(f.next_review) <= getCurrentUTCDate()).length,
+          // FlashcardResponse carries no next-review date, so no card is ever counted as due
+          dueToday: 0,
           mastered: flashcards.filter(f => (f.mastery_level || 0) >= 80).length,
           learning: flashcards.filter(f => (f.mastery_level || 0) < 80).length,
           averageScore: flashcards.reduce((sum, f) => sum + (f.last_performance || 0), 0) / Math.max(flashcards.length, 1)
@@ -94,7 +93,7 @@ export default function ProfilePage() {
       {/* Shared header, context=profile to show Notes/Settings */}
       {user ? (
         <Header
-          user={{ id: user.id, email: user.email, username: user.username || '', created_at: '' } as any}
+          user={{ id: user.id, email: user.email, username: user.username || '', created_at: '' }}
           onLogout={() => { localStorage.clear(); window.location.replace('/landing') }}
           context="profile"
         />

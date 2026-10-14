@@ -18,7 +18,7 @@ interface SettingsContentProps {
   searchQuery: string
 }
 
-export function SettingsContent({ activeTab, user, onUserUpdate, searchQuery }: SettingsContentProps) {
+export function SettingsContent({ activeTab, user, onUserUpdate }: SettingsContentProps) {
   const renderContent = () => {
     switch (activeTab) {
       case 'profile':

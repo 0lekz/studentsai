@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/form-label'
 import { Badge } from '@/components/ui/badge'
-import { CheckCircle, XCircle, Loader2, Eye, EyeOff, AlertTriangle, Shield, Lock, User } from 'lucide-react'
+import { CheckCircle, XCircle, Loader2, Eye, EyeOff, AlertTriangle, Shield, Lock, User as UserIcon } from 'lucide-react'
 import { api, type User, type UserProfileUpdate } from '@/lib/api'
 
 interface ProfileSettingsProps {
@@ -43,8 +43,6 @@ export function ProfileSettings({ user, onUserUpdate }: ProfileSettingsProps) {
   
   // Security states
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-  const [showPasswordConfirm, setShowPasswordConfirm] = useState(false)
-  const [showEmailConfirm, setShowEmailConfirm] = useState(false)
   const [deleteConfirmation, setDeleteConfirmation] = useState('')
   const [isDeleting, setIsDeleting] = useState(false)
   const [attemptCount, setAttemptCount] = useState(0)
@@ -86,7 +84,7 @@ export function ProfileSettings({ user, onUserUpdate }: ProfileSettingsProps) {
           available: result.available,
           message: result.available ? 'Username available!' : 'Username already taken'
         })
-      } catch (error) {
+      } catch {
         setUsernameStatus({
           checking: false,
           available: false,
@@ -161,8 +159,8 @@ export function ProfileSettings({ user, onUserUpdate }: ProfileSettingsProps) {
     
     try {
       checkRateLimit()
-    } catch (error: any) {
-      setMessage({ type: 'error', text: error.message })
+    } catch (error) {
+      setMessage({ type: 'error', text: error instanceof Error ? error.message : String(error) })
       return
     }
 
@@ -226,7 +224,7 @@ export function ProfileSettings({ user, onUserUpdate }: ProfileSettingsProps) {
           
           setIsLoading(false)
           return
-        } catch (error: any) {
+        } catch {
           setMessage({ 
             type: 'error', 
             text: 'Failed to send verification email. Please try again.' 
@@ -290,10 +288,10 @@ export function ProfileSettings({ user, onUserUpdate }: ProfileSettingsProps) {
       
       // Reset attempt count on success
       setAttemptCount(0)
-    } catch (error: any) {
+    } catch (error) {
       setMessage({ 
         type: 'error', 
-        text: error.message || 'Failed to update profile. Please try again later.' 
+        text: (error instanceof Error && error.message) || 'Failed to update profile. Please try again later.'
       })
     } finally {
       setIsLoading(false)
@@ -353,7 +351,7 @@ export function ProfileSettings({ user, onUserUpdate }: ProfileSettingsProps) {
         <Card className="bg-white dark:bg-[#141820] border-gray-200 dark:border-[#232a36]">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2 text-gray-900 dark:text-gray-100">
-              <User className="h-5 w-5" />
+              <UserIcon className="h-5 w-5" />
               <span>Username</span>
             </CardTitle>
           </CardHeader>
@@ -401,7 +399,7 @@ export function ProfileSettings({ user, onUserUpdate }: ProfileSettingsProps) {
         <Card className="bg-white dark:bg-[#141820] border-gray-200 dark:border-[#232a36]">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2 text-gray-900 dark:text-gray-100">
-              <User className="h-5 w-5" />
+              <UserIcon className="h-5 w-5" />
               <span>Email Address</span>
             </CardTitle>
           </CardHeader>
@@ -578,7 +576,7 @@ export function ProfileSettings({ user, onUserUpdate }: ProfileSettingsProps) {
         <div className="flex justify-end">
           <Button 
             type="submit" 
-            disabled={isLoading || (formData.newPassword && !passwordStrength.meetsRequirements)}
+            disabled={isLoading || (!!formData.newPassword && !passwordStrength.meetsRequirements)}
             className="bg-orange-600 hover:bg-orange-700 dark:bg-orange-600 dark:hover:bg-orange-700 text-white border-0 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? (
@@ -673,18 +671,18 @@ export function ProfileSettings({ user, onUserUpdate }: ProfileSettingsProps) {
                   onClick={async () => {
                     setIsDeleting(true)
                     try {
-                      const response = await api.requestAccountDeletion()
+                      await api.requestAccountDeletion()
                       setMessage({ 
                         type: 'success', 
                         text: 'Account deletion email sent! Please check your inbox and click the confirmation link.' 
                       })
                       setShowDeleteConfirm(false)
                       setDeleteConfirmation('')
-                    } catch (e: any) {
+                    } catch (e) {
                       console.error('Account deletion request failed:', e)
                       setMessage({ 
                         type: 'error', 
-                        text: e?.message || 'Failed to send deletion email. Please try again or contact support.' 
+                        text: (e instanceof Error && e.message) || 'Failed to send deletion email. Please try again or contact support.'
                       })
                     } finally {
                       setIsDeleting(false)

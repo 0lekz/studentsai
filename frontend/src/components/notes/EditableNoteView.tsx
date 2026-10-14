@@ -34,11 +34,10 @@ export function EditableNoteView({
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [showSaveTime, setShowSaveTime] = useState(false)
-  const [isEditing, setIsEditing] = useState(false)
   const [showDistractionFree, setShowDistractionFree] = useState(false)
 
   const isExistingNote = !!note
-  const autoSaveTimeoutRef = useRef<NodeJS.Timeout>()
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout>(undefined)
 
   // Reset state when note changes
   useEffect(() => {
@@ -164,7 +163,7 @@ export function EditableNoteView({
       // Show save time for 3 seconds
       setShowSaveTime(true)
       setTimeout(() => setShowSaveTime(false), 3000)
-    } catch (err) {
+    } catch {
       setError('Failed to save note')
     } finally {
       setLoading(false)
@@ -188,7 +187,7 @@ export function EditableNoteView({
         const result = await api.summarizeText(content)
         alert(`Summary: ${result.summary}`)
       }
-    } catch (err) {
+    } catch {
       setError('Failed to generate summary')
     } finally {
       setSummarizing(false)
@@ -201,13 +200,6 @@ export function EditableNoteView({
   }
 
   const wordCount = getWordCount(content)
-
-  // Auto-focus when creating new note
-  useEffect(() => {
-    if (!isExistingNote) {
-      setIsEditing(true)
-    }
-  }, [isExistingNote])
 
   // Show distraction-free mode
   if (showDistractionFree) {

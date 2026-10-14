@@ -7,15 +7,12 @@ import { WysiwygEditor } from './WysiwygEditor'
 import { 
   Minimize2, 
   Maximize2, 
-  Type, 
   Moon, 
   Sun, 
   Focus,
   Save,
   X,
-  Settings,
-  Eye,
-  EyeOff
+  Settings
 } from 'lucide-react'
 import { api, type Note } from '@/lib/api'
 
@@ -29,8 +26,7 @@ interface DistractionFreeModeProps {
 export function DistractionFreeMode({ 
   note, 
   onSave, 
-  onExit, 
-  onNavigateByTitle 
+  onExit
 }: DistractionFreeModeProps) {
   const [title, setTitle] = useState(note?.title || '')
   const [content, setContent] = useState(note?.content || '')

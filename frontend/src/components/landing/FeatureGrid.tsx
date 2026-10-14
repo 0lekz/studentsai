@@ -16,7 +16,6 @@ interface FeatureGridProps {
 }
 
 export function FeatureGrid({ features }: FeatureGridProps) {
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
   const [selectedFeature, setSelectedFeature] = useState<FeatureItem | null>(null)
 
   const openModal = (feature: FeatureItem) => {
@@ -34,8 +33,6 @@ export function FeatureGrid({ features }: FeatureGridProps) {
           <div
             key={index}
             className="group relative cursor-pointer"
-            onMouseEnter={() => setHoveredIndex(index)}
-            onMouseLeave={() => setHoveredIndex(null)}
             onClick={() => openModal(feature)}
           >
             {/* Feature Card */}

@@ -4,25 +4,15 @@ import { useState, useEffect } from 'react'
 import { Header } from '@/components/layout/Header'
 import FlashcardDashboard from '@/components/flashcards/FlashcardDashboard'
 import { api, type User } from '@/lib/api'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { type Flashcard } from '@/lib/types'
 
 export default function FlashcardsPage() {
   const [user, setUser] = useState<User | null>(null)
-  const [flashcards, setFlashcards] = useState<Flashcard[]>([])
-  const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({
     totalCards: 0,
     dueToday: 0,
     mastered: 0,
     learning: 0
   })
-
-  // Helper function to get current UTC date
-  const getCurrentUTCDate = () => {
-    const now = new Date()
-    return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
-  }
 
   useEffect(() => {
     const loadUser = async () => {
@@ -42,7 +32,8 @@ export default function FlashcardsPage() {
       const flashcards = await api.getUserFlashcards()
       const stats = {
         totalCards: flashcards.length,
-        dueToday: flashcards.filter(f => f.next_review && new Date(f.next_review) <= getCurrentUTCDate()).length,
+        // FlashcardResponse carries no next-review date, so no card is ever counted as due
+        dueToday: 0,
         mastered: flashcards.filter(f => (f.mastery_level || 0) >= 80).length,
         learning: flashcards.filter(f => (f.mastery_level || 0) < 80).length
       }

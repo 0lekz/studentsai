@@ -68,7 +68,7 @@ export function Heatmap({ title = 'Activity', days }: HeatmapProps) {
     const firstW = parsed[0]._date.getUTCDay()
     const padded: ActivityDayCount[] = []
     for (let i = 0; i < firstW; i++) padded.push({ date: '', count: 0 })
-    for (const d of parsed) padded.push({ date: d.date, count: d.count, top_type: (d as any).top_type })
+    for (const d of parsed) padded.push({ date: d.date, count: d.count, top_type: d.top_type })
     
     // Chunk into columns of 7
     const cols: ActivityDayCount[][] = []

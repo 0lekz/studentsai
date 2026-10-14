@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { type Note } from '@/lib/api'
-import { formatDate, truncateText, getWordCount } from '@/lib/utils'
+import { formatDate, getWordCount } from '@/lib/utils'
 import { 
   Edit, 
   Trash2, 
@@ -18,8 +18,6 @@ import {
   SortDesc,
   Tag,
   Clock,
-  Star,
-  FolderOpen,
   X
 } from 'lucide-react'
 import {
@@ -27,10 +25,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
-import { KeywordsDisplay } from './KeywordsDisplay'
 import { Badge } from '@/components/ui/badge'
 
 interface NotesListProps {
@@ -45,7 +41,7 @@ interface NotesListProps {
 type SortOption = 'updated' | 'created' | 'title' | 'wordCount'
 type SortDirection = 'asc' | 'desc'
 
-export function NotesList({ notes, onEdit, onDelete, onSelect, onRefreshKeywords, selectedNoteId }: NotesListProps) {
+export function NotesList({ notes, onEdit, onDelete, onSelect, selectedNoteId }: NotesListProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [deleteDialog, setDeleteDialog] = useState<{ isOpen: boolean; noteId: string | null }>({
     isOpen: false,
@@ -91,7 +87,7 @@ export function NotesList({ notes, onEdit, onDelete, onSelect, onRefreshKeywords
 
   // Filter and sort notes
   const filteredAndSortedNotes = useMemo(() => {
-    let filtered = notes.filter(note => {
+    const filtered = notes.filter(note => {
       // Search filter
       if (searchQuery) {
         const query = searchQuery.toLowerCase()

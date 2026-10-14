@@ -1,6 +1,5 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { 
   Command, 
@@ -18,8 +17,7 @@ import {
   Quote,
   Focus,
   Search,
-  Plus,
-  FileText
+  Plus
 } from 'lucide-react'
 
 interface KeyboardShortcutsProps {
@@ -66,12 +64,6 @@ const shortcuts = [
 ]
 
 export function KeyboardShortcuts({ isOpen, onClose }: KeyboardShortcutsProps) {
-  const [isMac, setIsMac] = useState(false)
-
-  useEffect(() => {
-    setIsMac(navigator.platform.toUpperCase().indexOf('MAC') >= 0)
-  }, [])
-
   if (!isOpen) return null
 
   return (

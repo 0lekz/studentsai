@@ -3,6 +3,7 @@
  */
 'use client'
 
+import type { JSX } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { EventItem, EventType } from '@/lib/api'
 import { FilePlus, BookOpenCheck } from 'lucide-react'

@@ -1,13 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  webpack: (config, { isServer }) => {
+  webpack: (config) => {
     // Handle D3 modules properly
     config.resolve.fallback = {
       ...config.resolve.fallback,

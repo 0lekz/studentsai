@@ -4,7 +4,6 @@
 'use client'
 
 import { Search, User, Palette, Network, Brain, BookOpen, Settings, Shield } from 'lucide-react'
-import { Card } from '@/components/ui/card'
 
 interface SettingsSidebarProps {
   activeTab: string

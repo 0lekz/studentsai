@@ -7,13 +7,13 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Palette, Type, Layout, Clock } from 'lucide-react'
-import { api } from '@/lib/api'
+import { api, type SettingsAppearance } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 
 export function AppearanceSettings() {
   const { toast } = useToast()
-  const [settings, setSettings] = useState({
-    theme: 'system' as 'light' | 'dark' | 'system',
+  const [settings, setSettings] = useState<SettingsAppearance>({
+    theme: 'system',
     font_size: 'medium',
     layout_density: 'comfortable',
   })
@@ -56,7 +56,7 @@ export function AppearanceSettings() {
         title: "Appearance settings saved",
         description: "Your visual preferences have been updated.",
       })
-    } catch (error) {
+    } catch {
       toast({
         title: "Error saving settings",
         description: "Failed to save your appearance preferences. Please try again.",

@@ -63,9 +63,9 @@ function GoogleCallbackContent() {
 
         setStatus('error')
         setError('No authentication token received from Google')
-      } catch (err: any) {
+      } catch (err) {
         setStatus('error')
-        setError(err?.message || 'Failed to complete Google authentication')
+        setError((err instanceof Error && err.message) || 'Failed to complete Google authentication')
         console.error('Google auth error:', err)
       }
     }

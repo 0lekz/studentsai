@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { api, type Flashcard, type FlashcardReviewResult } from '@/lib/api'
+import { api, type Flashcard, type FlashcardReviewResult, type Note } from '@/lib/api'
 import { 
   RefreshCw,
   Tag,
@@ -23,13 +23,13 @@ import { NotesGraph } from '@/components/graph/NotesGraph'
 
 interface FlashcardViewerProps {
   noteId?: string
-  note?: any
+  note: Note
   onFlashcardCreated?: (flashcard: Flashcard) => void
 }
 
-export function FlashcardViewer({ noteId, note, onFlashcardCreated }: FlashcardViewerProps) {
+export function FlashcardViewer({ noteId, note }: FlashcardViewerProps) {
   // Use noteId from props or extract from note object
-  const actualNoteId = noteId || note?.id
+  const actualNoteId = noteId || note.id
   const [flashcards, setFlashcards] = useState<Flashcard[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [showAnswer, setShowAnswer] = useState(false)

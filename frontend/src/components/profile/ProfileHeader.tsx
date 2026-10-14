@@ -3,8 +3,6 @@
  */
 'use client'
 
-import { Card, CardContent } from '@/components/ui/card'
-
 interface ProfileHeaderProps {
   name?: string
   email: string

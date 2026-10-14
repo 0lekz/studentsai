@@ -6,12 +6,12 @@ import { EditableNoteView } from '@/components/notes/EditableNoteView'
 import { NotesList } from '@/components/notes/NotesList'
 import { FlashcardViewer } from '@/components/flashcards/FlashcardViewer'
 import { NotesGraph } from '@/components/graph/NotesGraph'
-import { NoteTemplates } from '@/components/notes/NoteTemplates'
+import { NoteTemplates, type NoteTemplate } from '@/components/notes/NoteTemplates'
 import { KeyboardShortcuts } from '@/components/notes/KeyboardShortcuts'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { api, type Note, type User, APIError } from '@/lib/api'
-import { Plus, FileText, Network, Search, FolderOpen, PanelLeftClose, PanelLeftOpen, LayoutTemplate, HelpCircle } from 'lucide-react'
+import { FileText, Network, Search, FolderOpen, PanelLeftClose, PanelLeftOpen, LayoutTemplate, HelpCircle } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 
 type View = 'notes' | 'flashcards' | 'graph'
@@ -38,7 +38,7 @@ export default function Home() {
         setUser(parsedUser)
         api.setToken(token)
         loadNotes()
-      } catch (err) {
+      } catch {
         // Invalid stored data, clear it
         localStorage.removeItem('authToken')
         localStorage.removeItem('user')
@@ -109,7 +109,7 @@ export default function Home() {
     setSelectedNote(null)
   }
 
-  const handleSelectTemplate = async (template: any) => {
+  const handleSelectTemplate = async (template: NoteTemplate) => {
     setShowTemplates(false)
     try {
       // Create a new note with template content via API
@@ -123,7 +123,7 @@ export default function Home() {
     } catch (error) {
       console.error('Failed to create note from template:', error)
       // Fallback: create local note object
-      const newNote = {
+      const newNote: Note = {
         id: '',
         title: template.name,
         content: template.content,
@@ -131,9 +131,8 @@ export default function Home() {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         tags: template.tags,
-        user_id: user?.id || ''
       }
-      setSelectedNote(newNote as Note)
+      setSelectedNote(newNote)
     }
   }
 
@@ -175,11 +174,6 @@ export default function Home() {
       console.error('Failed to extract keywords:', error)
       alert('Failed to extract keywords')
     }
-  }
-
-  const handleViewFlashcards = (note: Note) => {
-    setSelectedNote(note)
-    setCurrentView('flashcards')
   }
 
   const navigateToTitle = (title: string) => {
@@ -318,7 +312,7 @@ export default function Home() {
           <div className="flex-1 overflow-hidden min-h-0">
             {currentView === 'notes' ? (
               <EditableNoteView
-                note={selectedNote}
+                note={selectedNote ?? undefined}
                 onSave={handleSaveNote}
                 onNavigateByTitle={navigateToTitle}
                 showNotesPanel={showNotesPanel}
@@ -327,10 +321,7 @@ export default function Home() {
               />
             ) : currentView === 'flashcards' ? (
               selectedNote ? (
-                <FlashcardViewer
-                  note={selectedNote}
-                  onBack={() => setCurrentView('notes')}
-                />
+                <FlashcardViewer note={selectedNote} />
               ) : (
                 <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-[#0f1115]">
                   <div className="text-center">
@@ -341,11 +332,7 @@ export default function Home() {
                 </div>
               )
             ) : currentView === 'graph' ? (
-              <NotesGraph
-                notes={notes}
-                onSelectNote={handleSelectNote}
-                selectedNoteId={selectedNote?.id}
-              />
+              <NotesGraph />
             ) : null}
           </div>
         </div>

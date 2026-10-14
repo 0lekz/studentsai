@@ -8,7 +8,7 @@ import { type Note } from '@/lib/api'
 
 interface KeywordsDisplayProps {
   note: Note
-  onRefreshKeywords?: () => Promise<void>
+  onRefreshKeywords?: (noteId: string) => Promise<void>
   onRemoveKeyword?: (keyword: string) => void
   className?: string
 }

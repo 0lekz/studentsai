@@ -30,7 +30,7 @@ export function AISettings() {
               <span className="text-lg font-medium text-gray-700 dark:text-gray-300">Coming Soon</span>
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-              We're working on AI-powered features to enhance your learning experience.
+              We&apos;re working on AI-powered features to enhance your learning experience.
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-500">
               Smart note summaries, intelligent flashcard generation, learning pattern analysis, and personalized study recommendations.
