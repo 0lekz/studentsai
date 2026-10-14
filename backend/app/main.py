@@ -296,29 +296,6 @@ async def test_email_service(
         }
 
 
-@app.get("/test/email-config")
-async def test_email_config():
-    """Check email configuration without sending emails"""
-    return {
-        "mail_username": settings.mail_username
-        if settings.mail_username != "your-email@gmail.com"
-        else "NOT_SET",
-        "mail_from": settings.mail_from
-        if settings.mail_from != "your-email@gmail.com"
-        else "NOT_SET",
-        "mail_server": settings.mail_server,
-        "mail_port": settings.mail_port,
-        "mail_tls": settings.mail_tls,
-        "mail_ssl": settings.mail_ssl,
-        "mail_password_set": bool(
-            settings.mail_password and settings.mail_password != "your-app-password"
-        ),
-        "mail_timeout": settings.mail_timeout,
-        "frontend_url": settings.frontend_url,
-        "verification_token_expire_minutes": settings.verification_token_expire_minutes,
-    }
-
-
 # Create database tables on startup
 @app.on_event("startup")
 async def startup_event():
