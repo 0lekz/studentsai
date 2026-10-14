@@ -1,0 +1,173 @@
+subject = "biology"
+course = "BIO 101 - Introductory Biology"
+
+[[notes]]
+id = "bio-mitosis"
+topic = "cell-division"
+title = "Lec 7 - Mitosis (PMAT)"
+content = '''
+Mitosis = nuclear division, 4 phases, mnemonic PMAT
+- Prophase: chromatin condenses into visible chromosomes, spindle fibers start forming, nuclear envelope breaks down
+- Metaphase: chromosomes line up on the metaphase plate, kinetochores attached to the spindle
+- Anaphase: sister chromatids pulled apart to opposite poles
+- Telophase: nuclear envelopes re-form around each set, chromosomes decondense
+Exam tip: know what the spindle attaches to (kinetochore at the centromere)
+'''
+
+[[notes]]
+id = "bio-cell-splitting"
+topic = "cell-division"
+title = "How one cell becomes two"
+content = '''
+Why it matters: growth, wound healing, replacing worn-out skin and gut lining.
+A parent copies its entire genome first, then hands one complete copy to each offspring.
+Result is two genetically identical daughters with the same chromosome number as the parent (46 in humans).
+Contrast with making sperm and eggs, which halves the count instead.
+Unregulated copying -> tumors.
+'''
+
+[[notes]]
+id = "bio-cell-cycle"
+topic = "cell-division"
+title = "Cell cycle + checkpoints"
+content = '''
+- Interphase = G1 (growth), S (DNA replication), G2 (prep), then M phase
+- Checkpoints: G1/S (is the DNA damaged? enough nutrients?), G2/M, spindle checkpoint in metaphase
+- Cyclins + CDKs drive the transitions, cyclin levels rise and fall every round
+- p53 = tumor suppressor, halts the cycle if DNA is damaged
+- Mutated p53 in roughly half of all cancers
+'''
+
+[[notes]]
+id = "bio-cytokinesis"
+topic = "cell-division"
+title = "Cytokinesis - animal vs plant"
+content = '''
+- Last step after the nucleus has divided: the cytoplasm splits
+- Animal cells: actin-myosin ring pinches the membrane -> cleavage furrow
+- Plant cells: rigid wall so no pinching, Golgi vesicles build a cell plate in the middle that becomes the new wall
+- Sometimes skipped -> multinucleate cells (skeletal muscle fibers)
+'''
+
+[[notes]]
+id = "bio-photosynthesis"
+topic = "photosynthesis"
+title = "Lec 9 - Photosynthesis overview"
+content = '''
+6CO2 + 6H2O + light -> C6H12O6 + 6O2
+- Happens in chloroplasts, chlorophyll absorbs mostly red + blue light (reflects green)
+- Stage 1, light-dependent reactions (thylakoid membranes): make ATP + NADPH, split water, O2 released
+- Stage 2, Calvin cycle (stroma): uses the ATP/NADPH to fix CO2 into sugar
+- Photosynthesis is basically cellular respiration run in reverse
+'''
+
+[[notes]]
+id = "bio-plants-sugar"
+topic = "photosynthesis"
+title = "How plants make their own food"
+content = '''
+Leaves work like solar panels.
+Energy from sunlight is captured by a green pigment and stored in the chemical bonds of glucose.
+Raw materials: carbon dioxide comes in through tiny pores on the underside of the leaf (stomata), water is pulled up from the roots.
+The byproduct is the oxygen we breathe.
+The plant burns some of that sugar itself for energy, the rest becomes starch and cellulose.
+'''
+
+[[notes]]
+id = "bio-calvin-cycle"
+topic = "photosynthesis"
+title = "Calvin cycle (light-independent rxns)"
+content = '''
+- In the stroma, doesn't need light directly but needs ATP + NADPH from the light rxns
+- Step 1 carbon fixation: RuBisCO attaches CO2 to RuBP
+- Step 2 reduction -> G3P (3-carbon sugar), some of it leaves the cycle to make glucose
+- Step 3 regenerate RuBP
+- 3 turns = 1 G3P out
+- C4 and CAM plants = workarounds for photorespiration in hot, dry climates
+'''
+
+[[notes]]
+id = "bio-mendel"
+topic = "genetics"
+title = "Mendel + pea plants"
+content = '''
+- Gregor Mendel crossed pea plants (flower color, seed shape) in the 1860s
+- Traits come in discrete units (genes), each organism carries 2 alleles per gene
+- Law of segregation: allele pairs separate when gametes form
+- Law of independent assortment: genes for different traits sort independently (if on different chromosomes)
+- Dominant allele masks the recessive one in heterozygotes
+'''
+
+[[notes]]
+id = "bio-punnett"
+topic = "genetics"
+title = "Punnett squares practice"
+content = '''
+Monohybrid cross Aa x Aa:
+- genotypes 1 AA : 2 Aa : 1 aa
+- phenotypes 3 dominant : 1 recessive
+Test cross = unknown dominant x aa, tells you whether it's AA or Aa
+Dihybrid AaBb x AaBb -> 9:3:3:1
+Genotype = alleles, phenotype = what you see
+Prof said there will be a blood type question on the exam (ABO codominance)
+'''
+
+[[notes]]
+id = "bio-heredity"
+topic = "genetics"
+title = "Why kids resemble their parents"
+content = '''
+Each parent passes on one copy of every instruction, so a child carries a mix of both.
+Some versions win out over others: brown eyes usually show up even if only one parent passed that version down.
+Two carriers of a hidden condition like cystic fibrosis can have an affected child, about 1 in 4 odds.
+Family trees (pedigrees) let you trace how a trait moves through generations.
+'''
+
+[[notes]]
+id = "bio-natural-selection"
+topic = "evolution"
+title = "Lec 12 - Darwin + natural selection"
+content = '''
+Natural selection needs: variation in a population, heritability, more offspring than can survive, differential reproduction
+- Individuals with traits better suited to the environment leave more offspring = higher fitness
+- Over generations the favorable alleles increase in frequency
+- Galapagos finches: beak depth tracked seed size after droughts
+- Selection acts on individuals, but populations evolve
+- Fitness = reproductive success, NOT strength
+'''
+
+[[notes]]
+id = "bio-antibiotic-resistance"
+topic = "evolution"
+title = "Antibiotic resistance"
+content = '''
+Evolution happening in real time
+- Random mutations make a few bacteria resistant to a drug
+- The antibiotic kills the susceptible ones, resistant survivors multiply
+- Resistance genes can also jump between bacteria on plasmids (horizontal gene transfer)
+- MRSA = methicillin-resistant Staphylococcus aureus
+- Overuse in livestock and unfinished prescriptions speed it up
+'''
+
+[[notes]]
+id = "bio-speciation"
+topic = "evolution"
+title = "Speciation"
+content = '''
+Biological species concept = populations that can interbreed and produce fertile offspring
+- Allopatric: a geographic barrier (river, mountain range) splits a population, gene flow stops, they drift apart
+- Sympatric: same area, e.g. polyploidy in plants, different mating seasons
+- Reproductive isolation: prezygotic (behavior, timing, mechanics) vs postzygotic (sterile hybrids like mules)
+'''
+
+[[notes]]
+id = "bio-evolution-evidence"
+topic = "evolution"
+title = "Evidence for evolution"
+content = '''
+- Fossil record: transitional forms (Tiktaalik, Archaeopteryx)
+- Homologous structures: same bones in a human arm, bat wing, whale flipper -> common ancestor
+- Vestigial structures: whale pelvis, human appendix
+- DNA comparisons: humans and chimps share ~98.8%
+- Direct observation: peppered moths darkened during the Industrial Revolution
+'''

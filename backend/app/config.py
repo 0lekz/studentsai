@@ -3,6 +3,7 @@ Configuration management for StudentsAI MVP
 """
 
 from pathlib import Path
+from typing import Literal
 
 from pydantic_settings import BaseSettings
 
@@ -60,6 +61,13 @@ class Settings(BaseSettings):
     openai_api_key: str = "your-openai-api-key"
     daily_ai_request_limit: int = 100
     ai_requests_per_hour: int = 100  # Hourly AI request limit
+
+    # Note similarity
+    similarity_backend: Literal["tfidf", "embeddings"] = "tfidf"
+    embedding_backend: Literal["fastembed", "fake"] = "fastembed"
+    embedding_model: str = "BAAI/bge-small-en-v1.5"
+    embedding_cache_dir: str = "~/.cache/fastembed"
+    embedding_similarity_threshold: float = 0.7
 
     # Rate Limiting
     rate_limit_requests: int = 100

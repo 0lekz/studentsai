@@ -1,0 +1,154 @@
+subject = "psychology"
+course = "PSY 100 - Introduction to Psychology"
+
+[[notes]]
+id = "psych-memory-model"
+topic = "memory"
+title = "Lec 8 - Memory: Atkinson-Shiffrin model"
+content = '''
+- Three stores: sensory memory (<1 s), short-term memory (~20 s, 7±2 items), long-term memory (practically unlimited)
+- Encoding -> storage -> retrieval
+- Attention moves info from sensory to short-term, rehearsal and elaboration move it into long-term
+- Serial position effect: primacy (rehearsed into LTM) + recency (still in STM)
+'''
+
+[[notes]]
+id = "psych-working-memory"
+topic = "memory"
+title = "Working memory (Baddeley)"
+content = '''
+- Replaced the idea of a single short-term store
+- Central executive directs attention
+- Phonological loop: inner voice, holds words and sounds
+- Visuospatial sketchpad: images, locations
+- Episodic buffer: link to long-term memory
+- Chunking increases capacity (phone numbers grouped 3-3-4)
+'''
+
+[[notes]]
+id = "psych-forgetting"
+topic = "memory"
+title = "Why we forget"
+content = '''
+Ebbinghaus learned lists of nonsense syllables and tested himself: most of the loss happens in the first day, then the curve flattens out.
+Spreading study sessions out beats cramming (spacing effect).
+New learning can block old learning and the other way round (retroactive / proactive interference).
+Testing yourself strengthens recall more than rereading does.
+'''
+
+[[notes]]
+id = "psych-false-memory"
+topic = "memory"
+title = "Eyewitness testimony + false memories"
+content = '''
+- Loftus car crash study: "smashed" vs "hit" changed speed estimates and made people remember broken glass that wasn't there
+- Misinformation effect: post-event information gets blended into the original memory
+- Memory is reconstructive, not a recording
+- Confidence doesn't equal accuracy
+'''
+
+[[notes]]
+id = "psych-classical-conditioning"
+topic = "conditioning"
+title = "Classical conditioning"
+content = '''
+- An unconditioned stimulus (UCS) naturally triggers an unconditioned response (UCR)
+- A neutral stimulus paired repeatedly with the UCS becomes a conditioned stimulus (CS) -> conditioned response (CR)
+- Acquisition, extinction (CS without the UCS), spontaneous recovery
+- Generalization vs discrimination
+- Little Albert: fear conditioned to a white rat
+'''
+
+[[notes]]
+id = "psych-pavlov"
+topic = "conditioning"
+title = "Pavlov's dogs"
+content = '''
+Pavlov was studying digestion and noticed his dogs started drooling before the food arrived, as soon as they heard the lab assistant's footsteps.
+He rang a bell right before feeding, and after enough repetitions the bell alone made them salivate.
+Learning by association: the animal links two events that keep happening together.
+Ads use the same trick, pairing a product with attractive people or catchy music.
+'''
+
+[[notes]]
+id = "psych-operant-conditioning"
+topic = "conditioning"
+title = "Operant conditioning (Skinner)"
+content = '''
+- Behavior is shaped by its consequences
+- Reinforcement increases a behavior: positive (add something good), negative (remove something bad)
+- Punishment decreases a behavior
+- Schedules: fixed ratio, variable ratio (slot machines, most resistant to extinction), fixed/variable interval
+- Shaping by successive approximations, Skinner box
+'''
+
+[[notes]]
+id = "psych-action-potential"
+topic = "neurons"
+title = "Neurons + the action potential"
+content = '''
+- Resting potential about -70 mV, inside negative relative to outside (Na+/K+ pump)
+- Stimulus reaches threshold (~-55 mV) -> voltage-gated Na+ channels open, depolarization
+- K+ channels open -> repolarization, brief hyperpolarization (refractory period)
+- All-or-none: intensity is coded by firing rate, not by the size of the spike
+- Myelin -> saltatory conduction, much faster
+'''
+
+[[notes]]
+id = "psych-synapses"
+topic = "neurons"
+title = "Synapses + neurotransmitters"
+content = '''
+- The action potential reaches the axon terminal -> vesicles release neurotransmitter into the synaptic cleft
+- It binds receptors on the next neuron: excitatory or inhibitory
+- Cleared by reuptake or enzymes
+- Dopamine (reward, movement), serotonin (mood, sleep), GABA (main inhibitory), glutamate (main excitatory), acetylcholine (muscles, memory)
+- SSRIs block serotonin reuptake
+'''
+
+[[notes]]
+id = "psych-neuron-structure"
+topic = "neurons"
+title = "Parts of a neuron"
+content = '''
+- Dendrites receive signals from other neurons
+- Cell body (soma) integrates the inputs
+- Axon carries the signal away, wrapped in myelin made by glial cells
+- Axon terminals connect to the next cell
+- ~86 billion neurons in the human brain, each with thousands of connections
+- Glia outnumber neurons: support, insulation, immune defense
+'''
+
+[[notes]]
+id = "psych-depression"
+topic = "depression"
+title = "Major depressive disorder"
+content = '''
+- DSM-5: 5+ symptoms for 2+ weeks, including depressed mood or loss of interest
+- Other symptoms: sleep and appetite changes, fatigue, worthlessness, trouble concentrating, suicidal thoughts
+- Lifetime prevalence ~20%, about twice as common in women
+- Causes: genetic vulnerability + stress (diathesis-stress model), not just "low serotonin"
+'''
+
+[[notes]]
+id = "psych-depression-treatment"
+topic = "depression"
+title = "Treating depression"
+content = '''
+- Antidepressants: SSRIs (fluoxetine, sertraline) take 4-6 weeks to work
+- CBT: identify and challenge negative automatic thoughts, behavioral activation
+- Medication + therapy combined works best for severe cases
+- ECT for treatment-resistant cases
+- Relapse is common, so maintenance treatment matters
+'''
+
+[[notes]]
+id = "psych-low-mood"
+topic = "depression"
+title = "Case study: persistent sadness"
+content = '''
+Client, 34, reports feeling empty most days for two months, no longer enjoys hiking or seeing friends, sleeps 11 hours and is still exhausted.
+Feels like a burden to family.
+Discussed anhedonia, hopelessness, and why "just cheer up" advice backfires.
+Screening: PHQ-9 score 17 (moderately severe).
+'''

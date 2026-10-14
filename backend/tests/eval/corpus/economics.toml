@@ -1,0 +1,151 @@
+subject = "economics"
+course = "ECON 101 - Principles of Economics"
+
+[[notes]]
+id = "econ-market-equilibrium"
+topic = "supply-demand"
+title = "Supply, demand, market equilibrium"
+content = '''
+- The demand curve slopes down (law of demand), supply slopes up
+- Market equilibrium is where quantity demanded = quantity supplied, it sets the equilibrium price
+- Price above equilibrium -> surplus, below -> shortage
+- Markets move back toward equilibrium as sellers cut prices or buyers bid them up
+'''
+
+[[notes]]
+id = "econ-curve-shifts"
+topic = "supply-demand"
+title = "Shifts vs movements along the curve"
+content = '''
+- A change in the good's own price = movement along the curve
+- Demand shifters: income, prices of related goods, tastes, expectations, number of buyers
+- Supply shifters: input costs, technology, taxes/subsidies, number of sellers
+- Practice: frost destroys the orange crop -> supply shifts left, price up, quantity down
+'''
+
+[[notes]]
+id = "econ-price-controls"
+topic = "supply-demand"
+title = "Price ceilings + floors"
+content = '''
+- Ceiling below equilibrium (rent control) -> shortage, long waiting lists, black markets
+- Floor above equilibrium (minimum wage, farm price supports) -> surplus (unemployment, for labor)
+- Deadweight loss: trades that would benefit both sides don't happen
+- Non-binding if the ceiling is above / the floor is below the equilibrium price
+'''
+
+[[notes]]
+id = "econ-elasticity"
+topic = "elasticity"
+title = "Price elasticity of demand"
+content = '''
+- Elasticity = % change in quantity demanded / % change in price (absolute value)
+- |E| > 1 elastic, |E| < 1 inelastic, = 1 unit elastic
+- Use the midpoint formula so the answer doesn't depend on direction
+- Determinants: available substitutes, necessity vs luxury, share of budget, time horizon
+- Perfectly inelastic = vertical demand curve
+'''
+
+[[notes]]
+id = "econ-price-sensitivity"
+topic = "elasticity"
+title = "How much do buyers react to a price change?"
+content = '''
+Gas prices doubled last summer but people still drove to work, they cut back only a little.
+When a café raises its latte price, regulars just go next door.
+Rule of thumb: necessities with no alternatives -> buyers barely respond, things with lots of close alternatives -> they respond a lot.
+Revenue test: if raising the price increases total revenue, buyers weren't very responsive.
+'''
+
+[[notes]]
+id = "econ-cross-income"
+topic = "elasticity"
+title = "Cross-price + income elasticity"
+content = '''
+- Cross-price elasticity: %ΔQ of good A / %ΔP of good B
+- Positive -> substitutes (Coke and Pepsi), negative -> complements (printers and ink)
+- Income elasticity: %ΔQ / %Δincome
+- Normal goods > 0, luxuries > 1, inferior goods < 0 (instant noodles, bus rides)
+'''
+
+[[notes]]
+id = "econ-inflation"
+topic = "inflation-monetary-policy"
+title = "Inflation + CPI"
+content = '''
+- Inflation = a sustained rise in the general price level
+- Measured with the CPI: cost of a fixed basket of goods relative to a base year
+- Inflation rate = (CPI_now - CPI_last) / CPI_last
+- Causes: demand-pull, cost-push, growth of the money supply
+- Hyperinflation: Weimar Germany 1923, Zimbabwe 2008
+'''
+
+[[notes]]
+id = "econ-purchasing-power"
+topic = "inflation-monetary-policy"
+title = "Why a dollar buys less every year"
+content = '''
+My grandparents paid 25 cents for a movie ticket, now it's 15 dollars.
+When prices across the whole economy creep upward, each unit of money is worth less, so savings sitting in cash quietly lose value.
+Wages often lag behind, so real income falls even if your paycheck stays the same.
+Lenders lose out, borrowers with fixed rates benefit.
+'''
+
+[[notes]]
+id = "econ-central-bank"
+topic = "inflation-monetary-policy"
+title = "Monetary policy + the Fed"
+content = '''
+- Central bank mandate (US): stable prices + maximum employment
+- Main tool: the federal funds rate target, raising rates cools borrowing and spending
+- Open market operations: buying government securities adds money to the banking system
+- Quantitative easing after 2008
+- Taylor rule as a guide for setting rates
+'''
+
+[[notes]]
+id = "econ-bond-market"
+topic = "inflation-monetary-policy"
+title = "Bonds + interest rates"
+content = '''
+- A bond is a loan to a government or company, it pays a fixed coupon until maturity
+- Bond prices move opposite to interest rates: when rates rise, existing bonds with lower coupons are worth less
+- Yield = return if held to maturity
+- Inflation erodes the real value of fixed bond payments, so investors demand higher yields when they expect it
+- Treasury bonds are treated as risk-free
+'''
+
+[[notes]]
+id = "econ-perfect-competition"
+topic = "market-structures"
+title = "Perfect competition"
+content = '''
+- Many firms, identical products, free entry and exit, every firm is a price taker
+- Each firm produces where P = MC
+- Short-run profits attract entry until long-run economic profit = 0
+- Allocatively and productively efficient in the long run
+'''
+
+[[notes]]
+id = "econ-monopoly"
+topic = "market-structures"
+title = "Monopoly"
+content = '''
+- Single seller, barriers to entry (patents, network effects, control of a resource)
+- Price maker: faces the whole downward-sloping demand curve, so MR < P
+- Produces where MR = MC, charges more and sells less than a competitive market -> deadweight loss
+- Natural monopoly: utilities, handled with regulation or public ownership
+- Price discrimination
+'''
+
+[[notes]]
+id = "econ-oligopoly"
+topic = "market-structures"
+title = "Oligopoly + game theory"
+content = '''
+- A few large firms, strategic interdependence
+- Prisoner's dilemma: each firm cuts its price even though both would earn more by keeping it high
+- Cartels (OPEC) try to collude, but every member is tempted to cheat
+- Nash equilibrium: no player gains by changing strategy alone
+- Kinked demand curve explains sticky prices
+'''

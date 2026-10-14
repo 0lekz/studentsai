@@ -170,6 +170,10 @@ from .schemas import (
     VerificationResponse,
     VerifyEmailToken,
 )
+from .services.embedding_service import (
+    find_embedding_connections,
+    refresh_note_embedding,
+)
 
 # Create FastAPI app
 app = FastAPI(
@@ -909,6 +913,7 @@ async def create_new_note(
     await check_rate_limit(request, str(user_id))
 
     note = create_note(db, note_data.title, note_data.content, user_id)
+    await refresh_note_embedding(db, note)
     with contextlib.suppress(Exception):
         record_event(db, user_id, "NOTE_CREATED", target_id=note.id)
 
@@ -973,6 +978,8 @@ async def update_existing_note(
         content=note_data.content,
         summary=note_data.summary,
     )
+
+    await refresh_note_embedding(db, updated_note)
 
     # Record the note update event
     with contextlib.suppress(Exception):
@@ -2332,7 +2339,10 @@ async def get_notes_graph(
     ]
 
     # Calculate connections
-    connections = calculate_note_similarities(notes_data)
+    if settings.similarity_backend == "embeddings":
+        connections = find_embedding_connections(db, [note.id for note in notes])
+    else:
+        connections = calculate_note_similarities(notes_data)
 
     # Create graph nodes
     nodes = [

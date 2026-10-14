@@ -1,0 +1,37 @@
+# Deliberate pairs, reported separately from the overall metrics.
+
+# Same topic, different words: lexical matching should miss these.
+synonymy = [
+  ["bio-mitosis", "bio-cell-splitting"],
+  ["bio-photosynthesis", "bio-plants-sugar"],
+  ["bio-mendel", "bio-heredity"],
+  ["chem-le-chatelier", "chem-cobalt-lab"],
+  ["phys-laws-thermo", "phys-coffee-cooling"],
+  ["cs-routing", "cs-webpage-journey"],
+  ["ml-neural-nets", "ml-deep-learning"],
+  ["econ-elasticity", "econ-price-sensitivity"],
+  ["econ-inflation", "econ-purchasing-power"],
+  ["psych-memory-model", "psych-forgetting"],
+  ["psych-classical-conditioning", "psych-pavlov"],
+  ["psych-depression", "psych-low-mood"],
+  ["hist-great-depression", "hist-1930s-crash"],
+]
+
+# Different topics, shared words: these should not be neighbours.
+near_miss = [
+  ["ml-neural-nets", "cs-tcp-ip"],
+  ["ml-neural-nets", "psych-neuron-structure"],
+  ["chem-equilibrium-constant", "econ-market-equilibrium"],
+  ["chem-galvanic-cell", "bio-cell-cycle"],
+  ["phys-entropy", "ml-decision-tree-entropy"],
+  ["phys-voltage", "psych-action-potential"],
+  ["psych-memory-model", "cs-virtual-memory"],
+  ["hist-great-depression", "psych-depression"],
+  ["bio-natural-selection", "cs-selection-sort"],
+  ["bio-natural-selection", "ml-genetic-algorithms"],
+  ["phys-momentum", "ml-momentum-sgd"],
+  ["phys-ohms-law", "bio-antibiotic-resistance"],
+  ["phys-hookes-law", "econ-elasticity"],
+  ["chem-ionic-covalent", "econ-bond-market"],
+  ["phys-heat-engines", "hist-steam-engine"],
+]

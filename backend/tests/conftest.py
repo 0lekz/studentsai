@@ -12,6 +12,8 @@ os.environ["VERIFICATION_TOKEN_EXPIRE_MINUTES"] = "1440"
 os.environ["FRONTEND_URL"] = "http://localhost:3000"
 os.environ["OPENAI_API_KEY"] = "test"
 os.environ["SENDGRID_API_KEY"] = "test"
+os.environ["EMBEDDING_BACKEND"] = "fake"
+os.environ["SIMILARITY_BACKEND"] = "tfidf"
 
 import ipaddress
 import json
@@ -21,7 +23,7 @@ from dataclasses import dataclass, field
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import make_url
+from sqlalchemy import make_url, text
 from sqlalchemy.orm import Session
 
 from app import ai_service as ai_service_module
@@ -218,6 +220,8 @@ def database() -> Iterator[None]:
         pytest.exit(
             f"Refusing to run: app engine is bound to {engine.url!r}, expected {expected!r}"
         )
+    with engine.begin() as connection:
+        connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     yield

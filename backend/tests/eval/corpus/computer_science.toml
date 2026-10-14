@@ -1,0 +1,165 @@
+subject = "computer-science"
+course = "CS 201 - Data Structures and Systems"
+
+[[notes]]
+id = "cs-quicksort"
+topic = "sorting"
+title = "Quicksort"
+content = '''
+- Pick a pivot, partition: smaller elements to the left, larger to the right, recurse on both halves
+- Average O(n log n), worst O(n²) when the pivot is always the min or max (sorted input + first-element pivot)
+- In-place, not stable
+- Randomized pivot or median-of-three avoids the bad case in practice
+'''
+
+[[notes]]
+id = "cs-mergesort"
+topic = "sorting"
+title = "Merge sort"
+content = '''
+- Divide and conquer: split the array in half, sort each half recursively, merge the two sorted halves
+- Merge step is linear: compare the fronts, take the smaller one
+- Always O(n log n) and stable, but needs O(n) extra memory
+- Recurrence T(n) = 2T(n/2) + O(n)
+- Good for linked lists and external sorting
+'''
+
+[[notes]]
+id = "cs-selection-sort"
+topic = "sorting"
+title = "Selection sort + insertion sort"
+content = '''
+- Selection sort: repeatedly select the smallest remaining element and swap it into the next position
+- Always O(n²) comparisons, but only O(n) swaps
+- Insertion sort: grow a sorted prefix, insert each new element where it belongs
+- Insertion sort is O(n) on nearly sorted input, used inside hybrid sorts for small arrays
+'''
+
+[[notes]]
+id = "cs-ordering-lower-bound"
+topic = "sorting"
+title = "Why you can't order a list faster than n log n"
+content = '''
+Any algorithm that only compares pairs of items can be drawn as a decision tree.
+There are n! possible orderings, and a binary tree with n! leaves has height at least log2(n!) ≈ n log n.
+So comparison-based approaches hit a floor.
+Counting sort and radix sort dodge it by not comparing at all, they look at the digits or keys directly.
+'''
+
+[[notes]]
+id = "cs-tcp-ip"
+topic = "networks"
+title = "Computer networks: the TCP/IP stack"
+content = '''
+- Network = nodes (hosts, routers) connected by links
+- Layers: application (HTTP, DNS), transport (TCP, UDP), network (IP), link (Ethernet, Wi-Fi)
+- Each layer wraps the data from the layer above with its own header (encapsulation)
+- TCP: reliable, ordered, connection-oriented (3-way handshake SYN, SYN-ACK, ACK)
+- UDP: no guarantees, low latency (video calls, games)
+'''
+
+[[notes]]
+id = "cs-routing"
+topic = "networks"
+title = "Routing + IP addresses"
+content = '''
+- Data is split into packets, each routed independently
+- IPv4 = 32-bit address, IPv6 = 128-bit, subnet masks / CIDR notation
+- Routers forward packets hop by hop using routing tables
+- Distance vector (RIP) vs link state (OSPF), BGP between autonomous systems
+- traceroute shows the hops
+'''
+
+[[notes]]
+id = "cs-webpage-journey"
+topic = "networks"
+title = "What happens when you type a URL"
+content = '''
+The browser first asks a name server to turn the domain into a numeric address.
+Then it opens a connection to that machine and sends a GET request.
+The reply is chopped into small chunks that may take different paths across many intermediate machines and get reassembled in order on your laptop.
+HTTPS adds a TLS handshake so nobody in the middle can read it.
+'''
+
+[[notes]]
+id = "cs-osi"
+topic = "networks"
+title = "OSI model"
+content = '''
+7 layers: Physical, Data link, Network, Transport, Session, Presentation, Application
+Mnemonic: Please Do Not Throw Sausage Pizza Away
+- Physical = bits on the wire, Data link = frames + MAC addresses, Network = IP + routing, Transport = TCP/UDP ports
+- The real internet mostly follows the simpler 4-layer TCP/IP model
+- Switches work at layer 2, routers at layer 3
+'''
+
+[[notes]]
+id = "cs-virtual-memory"
+topic = "memory-management"
+title = "Virtual memory + paging"
+content = '''
+- Each process sees its own large address space, the OS maps virtual pages to physical frames
+- The page table stores the mapping, the TLB caches recent translations
+- Page fault: page not in RAM, the OS loads it from disk (slow)
+- Thrashing: so many page faults that the system spends all its time swapping
+- Benefits: isolation between processes, programs larger than RAM
+'''
+
+[[notes]]
+id = "cs-cache-hierarchy"
+topic = "memory-management"
+title = "Memory hierarchy + caches"
+content = '''
+- Registers -> L1 -> L2 -> L3 -> RAM -> SSD/disk, each level bigger and slower
+- Caches exploit locality: temporal (reused soon) and spatial (nearby addresses)
+- Cache hit vs miss, a miss to RAM can cost 100+ cycles
+- Write-through vs write-back policies
+- In C, loop over a 2D array row by row, not column by column
+'''
+
+[[notes]]
+id = "cs-heap-stack"
+topic = "memory-management"
+title = "Stack vs heap allocation"
+content = '''
+- Stack: function call frames and local variables, freed automatically on return, fast
+- Heap: malloc/new, lives until free/delete (or the garbage collector)
+- Memory leak = heap allocation that is never freed
+- Stack overflow from deep recursion
+- Buffer overflow: writing past the end of an array, classic security bug
+'''
+
+[[notes]]
+id = "cs-threads"
+topic = "concurrency"
+title = "Processes vs threads"
+content = '''
+- Process: own address space, heavier to create, isolated from other processes
+- Thread: shares memory with the other threads of its process, cheaper context switch
+- Concurrency (interleaved) vs parallelism (truly simultaneous on multiple cores)
+- Python GIL: only one thread runs Python bytecode at a time
+'''
+
+[[notes]]
+id = "cs-deadlock"
+topic = "concurrency"
+title = "Deadlock"
+content = '''
+4 conditions, all needed: mutual exclusion, hold and wait, no preemption, circular wait
+- Example: thread A holds lock 1 and waits for lock 2, thread B holds lock 2 and waits for lock 1
+- Prevention: always acquire locks in one global order
+- Dining philosophers problem
+- Detection: build a resource allocation graph and look for cycles
+'''
+
+[[notes]]
+id = "cs-race-conditions"
+topic = "concurrency"
+title = "Race conditions + mutexes"
+content = '''
+- Race condition: the result depends on thread timing, e.g. two threads doing count += 1 lose updates
+- The critical section must run atomically
+- Mutex/lock: only one thread inside at a time
+- Semaphores generalize this to N permits
+- Atomic operations / compare-and-swap for lock-free code
+'''

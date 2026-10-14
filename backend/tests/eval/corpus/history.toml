@@ -1,0 +1,144 @@
+subject = "history"
+course = "HIST 120 - The Modern World"
+
+[[notes]]
+id = "hist-great-depression"
+topic = "great-depression"
+title = "The Great Depression"
+content = '''
+- Began with the stock market crash of October 1929
+- US unemployment reached ~25% by 1933, thousands of banks failed
+- Causes: buying stocks on margin, overproduction, a weak banking system, the Smoot-Hawley tariff, the Fed letting the money supply shrink
+- The Dust Bowl made it worse for farmers on the Plains
+- Worldwide: the depression in Germany helped bring the Nazis to power
+'''
+
+[[notes]]
+id = "hist-new-deal"
+topic = "great-depression"
+title = "FDR and the New Deal"
+content = '''
+- Roosevelt elected 1932, the first hundred days
+- Relief, recovery, reform
+- Programs: CCC, WPA (jobs), FDIC (bank deposit insurance), SEC, Social Security Act 1935
+- Critics: too much government (business leaders), not enough (Huey Long)
+- Unemployment stayed high until WWII mobilization
+'''
+
+[[notes]]
+id = "hist-1930s-crash"
+topic = "great-depression"
+title = "Black Tuesday and the hard years after"
+content = '''
+On 29 October 1929 Wall Street lost billions in a single day.
+Factories closed, families lost farms and homes, and breadlines and shantytowns ("Hoovervilles") appeared in every city.
+Hoover believed in voluntary cooperation and opposed direct federal aid.
+The slump lasted a decade.
+'''
+
+[[notes]]
+id = "hist-french-revolution"
+topic = "french-revolution"
+title = "French Revolution 1789"
+content = '''
+- Causes: war debt, bread prices, Enlightenment ideas, an unfair estate system (clergy, nobles, everyone else)
+- Estates-General -> the Third Estate forms the National Assembly, Tennis Court Oath
+- Storming of the Bastille, 14 July 1789
+- Declaration of the Rights of Man and of the Citizen
+- Monarchy abolished 1792, Louis XVI executed 1793
+'''
+
+[[notes]]
+id = "hist-reign-of-terror"
+topic = "french-revolution"
+title = "Reign of Terror"
+content = '''
+- 1793-94, Committee of Public Safety led by Robespierre
+- ~17,000 official executions by guillotine, many more died in prison
+- Law of Suspects: anyone could be accused of being an enemy of the Revolution
+- Ended with Robespierre's own execution (Thermidorian Reaction)
+- Then the Directory, weak and corrupt
+'''
+
+[[notes]]
+id = "hist-napoleon"
+topic = "french-revolution"
+title = "Rise of Napoleon"
+content = '''
+- Corsican artillery officer, made his name in the Italian campaign
+- Coup of 18 Brumaire 1799 -> First Consul, Emperor in 1804
+- Napoleonic Code: legal equality, property rights, kept many revolutionary reforms
+- Defeats: Russia 1812, Leipzig, Waterloo 1815
+- Spread revolutionary ideas (and nationalism) across Europe
+'''
+
+[[notes]]
+id = "hist-steam-engine"
+topic = "industrial-revolution"
+title = "Industrial Revolution: steam power"
+content = '''
+- Began in Britain ~1760
+- The Newcomen engine pumped water out of coal mines, James Watt's separate condenser made the steam engine far more efficient (1769)
+- Steam engines freed factories from rivers, so industry moved into cities
+- Coal + iron + steam = the core of the revolution
+'''
+
+[[notes]]
+id = "hist-factory-system"
+topic = "industrial-revolution"
+title = "Factories + working conditions"
+content = '''
+- Textile mills in Manchester: spinning jenny, water frame, power loom
+- 12-14 hour days, child labor, dangerous machines
+- Rapid urbanization, slums, cholera outbreaks
+- Factory Acts (1833 onward) limited child labor
+- Rise of the working class -> trade unions, Marx and Engels
+'''
+
+[[notes]]
+id = "hist-railways"
+topic = "industrial-revolution"
+title = "Railways and the transport revolution"
+content = '''
+- Stephenson's Rocket 1829, Liverpool-Manchester line 1830
+- Cut travel time and freight costs dramatically
+- Standard time zones were invented because of railway timetables
+- Railway mania investment bubble in the 1840s
+- Spread to the US: transcontinental railroad 1869
+'''
+
+[[notes]]
+id = "hist-cold-war-origins"
+topic = "cold-war"
+title = "Origins of the Cold War"
+content = '''
+- After WWII: US vs USSR, capitalism vs communism
+- Churchill's Iron Curtain speech 1946
+- Truman Doctrine 1947: containment of communism, the Marshall Plan rebuilt Western Europe
+- Berlin Blockade + Airlift 1948-49
+- NATO 1949, Warsaw Pact 1955
+'''
+
+[[notes]]
+id = "hist-cuban-missile-crisis"
+topic = "cold-war"
+title = "Cuban Missile Crisis 1962"
+content = '''
+- US spy planes found Soviet missile sites in Cuba
+- 13 days, Kennedy chose a naval "quarantine" instead of air strikes
+- Khrushchev agreed to remove the missiles, the US quietly removed its missiles from Turkey
+- The closest the world came to nuclear war
+- Led to the Moscow-Washington hotline
+'''
+
+[[notes]]
+id = "hist-arms-race"
+topic = "cold-war"
+title = "Arms race + space race"
+content = '''
+- Soviet atomic bomb 1949 ended the US monopoly, both sides built hydrogen bombs in the 1950s
+- Mutually assured destruction (MAD): neither side could win a nuclear exchange
+- Sputnik 1957 shocked the US -> NASA, more funding for science education
+- Apollo 11 moon landing 1969
+- Arms control: Test Ban Treaty 1963, SALT I 1972
+'''

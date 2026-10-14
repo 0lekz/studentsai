@@ -1,0 +1,167 @@
+subject = "physics"
+course = "PHYS 150 - Physics I and II"
+
+[[notes]]
+id = "phys-newtons-laws"
+topic = "mechanics"
+title = "Newton's 3 laws"
+content = '''
+1. Inertia: an object keeps its velocity unless a net force acts on it
+2. F_net = ma (it's a vector equation!)
+3. Every action has an equal and opposite reaction, the pair acts on DIFFERENT objects
+- Mass ≠ weight, weight = mg
+- Common mistake: the normal force is not always mg (incline, elevator)
+'''
+
+[[notes]]
+id = "phys-momentum"
+topic = "mechanics"
+title = "Momentum + collisions"
+content = '''
+- Momentum p = mv, a vector
+- Impulse J = FΔt = Δp (why airbags work: longer Δt, smaller force)
+- Conservation of momentum: total momentum is constant if there's no external force
+- Elastic collision: kinetic energy conserved too, inelastic: KE lost, objects may stick together
+- Momentum keeps a moving object going in the same direction
+'''
+
+[[notes]]
+id = "phys-hookes-law"
+topic = "mechanics"
+title = "Springs, Hooke's law, elasticity"
+content = '''
+- F = -kx, restoring force proportional to the stretch
+- k = spring constant (N/m), stiffer spring = bigger k
+- Elastic potential energy U = ½kx²
+- Elastic limit: past it the material deforms permanently
+- Young's modulus describes the elasticity of a material: stress / strain
+- Mass on a spring: simple harmonic motion, period T = 2π√(m/k)
+'''
+
+[[notes]]
+id = "phys-friction-fbd"
+topic = "mechanics"
+title = "Free body diagrams + friction"
+content = '''
+- Draw every force on ONE object: gravity, normal, tension, friction, applied
+- Static friction ≤ μs N, kinetic friction = μk N, usually μk < μs
+- Incline: split gravity into mg sinθ along the slope and mg cosθ into the slope
+- Equilibrium problems: sum of forces = 0 in both x and y
+'''
+
+[[notes]]
+id = "phys-laws-thermo"
+topic = "thermodynamics"
+title = "Laws of thermodynamics"
+content = '''
+- 0th: thermal equilibrium is transitive -> defines temperature
+- 1st: ΔU = Q - W, energy is conserved, heat added goes into internal energy or work
+- 2nd: total entropy of an isolated system never decreases, no engine is 100% efficient
+- 3rd: entropy approaches a minimum as T -> absolute zero
+Mnemonic: you can't win, you can't break even, you can't get out of the game
+'''
+
+[[notes]]
+id = "phys-entropy"
+topic = "thermodynamics"
+title = "Entropy"
+content = '''
+- Entropy S counts the microscopic arrangements: S = k_B ln W
+- ΔS = Q_rev / T for a reversible process
+- Irreversible processes (mixing, friction, free expansion) increase entropy
+- Arrow of time: why a broken egg does not reassemble
+- Information connection: Shannon entropy has the same mathematical form
+'''
+
+[[notes]]
+id = "phys-heat-engines"
+topic = "thermodynamics"
+title = "Heat engines + Carnot"
+content = '''
+- A heat engine takes heat Q_H from a hot reservoir, does work W, dumps Q_C into a cold reservoir
+- Efficiency e = W/Q_H = 1 - Q_C/Q_H
+- Carnot limit: e_max = 1 - T_C/T_H (Kelvin!)
+- Steam engine, car engine, power plant turbine are all heat engines
+- Refrigerator = heat engine run backwards, uses work to move heat
+'''
+
+[[notes]]
+id = "phys-coffee-cooling"
+topic = "thermodynamics"
+title = "Why does coffee go cold?"
+content = '''
+A hot drink always ends up at room temperature, the room never spontaneously warms the drink up.
+Energy spreads out from hot things to cooler surroundings until everything is at the same temperature.
+Newton's law of cooling: the rate of temperature drop is proportional to the difference with the room.
+Same reason you can't build a perpetual motion machine.
+'''
+
+[[notes]]
+id = "phys-ohms-law"
+topic = "circuits"
+title = "Ohm's law + resistance"
+content = '''
+- V = IR
+- Resistance depends on material, length and cross-section: R = ρL/A
+- Series: R_total = R1 + R2 (same current), parallel: 1/R_total = 1/R1 + 1/R2 (same voltage)
+- Power dissipated P = IV = I²R
+- Superconductors: zero resistance below a critical temperature
+'''
+
+[[notes]]
+id = "phys-voltage"
+topic = "circuits"
+title = "Electric potential + voltage"
+content = '''
+- Electric potential = potential energy per unit charge, V = U/q, measured in volts (J/C)
+- Voltage is the potential difference between two points, it pushes current around a circuit
+- The field points from high to low potential
+- Point charge: V = kq/r
+- Equipotential lines are perpendicular to field lines
+'''
+
+[[notes]]
+id = "phys-kirchhoff"
+topic = "circuits"
+title = "Kirchhoff's rules"
+content = '''
+- Junction rule: current in = current out (charge conservation)
+- Loop rule: the voltage changes around any closed loop sum to 0 (energy conservation)
+- Pick current directions, if an answer comes out negative the real current flows the other way
+- Use it for circuits that can't be reduced to series/parallel
+'''
+
+[[notes]]
+id = "phys-waves"
+topic = "waves"
+title = "Wave basics"
+content = '''
+- A wave transfers energy without transferring matter
+- v = fλ, period T = 1/f
+- Transverse (string, light) vs longitudinal (sound)
+- Amplitude relates to energy, frequency is set by the source, speed is set by the medium
+- Reflection and refraction at boundaries
+'''
+
+[[notes]]
+id = "phys-sound"
+topic = "waves"
+title = "Sound + Doppler effect"
+content = '''
+- Sound = longitudinal pressure wave, needs a medium, ~343 m/s in air
+- Pitch <-> frequency, loudness <-> amplitude, decibels are logarithmic (+10 dB = 10x intensity)
+- Doppler: source moving toward you -> higher observed frequency (ambulance siren)
+- Resonance in pipes: open-open vs open-closed harmonics
+'''
+
+[[notes]]
+id = "phys-interference"
+topic = "waves"
+title = "Interference + superposition"
+content = '''
+- Superposition: overlapping waves add their displacements point by point
+- Constructive interference when crests line up, destructive when a crest meets a trough
+- Double slit: bright fringes where the path difference = mλ
+- Noise-cancelling headphones use destructive interference
+- Standing waves = interference of two waves travelling in opposite directions
+'''

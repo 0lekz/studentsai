@@ -1,0 +1,155 @@
+subject = "machine-learning"
+course = "CS 4780 - Machine Learning"
+
+[[notes]]
+id = "ml-neural-nets"
+topic = "neural-networks"
+title = "Neural nets intro"
+content = '''
+- Artificial neuron: weighted sum of the inputs + bias, passed through an activation function (sigmoid, ReLU)
+- Perceptron = a single neuron, can only learn linearly separable functions (fails on XOR)
+- Network: input layer -> hidden layer(s) -> output layer, every node connected to the next layer
+- Weights are learned from data by minimizing a loss
+- Universal approximation theorem: one hidden layer can approximate any continuous function
+'''
+
+[[notes]]
+id = "ml-deep-learning"
+topic = "neural-networks"
+title = "Deep learning"
+content = '''
+Big idea: stack many trainable transformations so the model discovers its own features from raw data instead of relying on hand-engineered ones.
+Early stages pick up edges, later ones combine them into textures, parts, then whole objects.
+Took off around 2012 (AlexNet on ImageNet) thanks to GPUs, huge labeled datasets, and tricks like ReLU and dropout.
+Downsides: data hungry, expensive to train, hard to interpret.
+'''
+
+[[notes]]
+id = "ml-backprop"
+topic = "neural-networks"
+title = "Backpropagation"
+content = '''
+- Forward pass: compute activations layer by layer, then the loss
+- Backward pass: the chain rule gives the gradient of the loss w.r.t. every weight, starting from the output
+- Then update the weights with gradient descent
+- Vanishing gradients with sigmoid in deep stacks -> use ReLU, batch norm, residual connections
+- Autograd frameworks (PyTorch) do all of this automatically
+'''
+
+[[notes]]
+id = "ml-cnn"
+topic = "neural-networks"
+title = "Convolutional neural networks"
+content = '''
+- Convolution layer: small learned filters slide over the image and produce feature maps
+- Weight sharing -> far fewer parameters than fully connected layers, translation invariance
+- Pooling (max pool) downsamples
+- Typical stack: conv -> ReLU -> pool, repeated, then a fully connected classifier
+- LeNet, AlexNet, VGG, ResNet
+'''
+
+[[notes]]
+id = "ml-decision-tree-entropy"
+topic = "decision-trees"
+title = "Decision trees: entropy + information gain"
+content = '''
+- A tree splits the data on one feature at a time, the leaves give the prediction
+- Entropy H = -Σ p log2 p measures the impurity of a node's labels (0 = pure, 1 = 50/50 for binary)
+- Information gain = entropy before the split - weighted entropy after
+- Greedy: pick the split with the highest gain (ID3, C4.5)
+- Gini impurity is the alternative used by CART
+'''
+
+[[notes]]
+id = "ml-random-forest"
+topic = "decision-trees"
+title = "Random forests"
+content = '''
+- Ensemble of many decision trees, each trained on a bootstrap sample of the data (bagging)
+- Each split only considers a random subset of features -> the trees are decorrelated
+- Prediction = majority vote (classification) or average (regression)
+- Lower variance than one deep tree, out-of-bag error is free validation
+- Feature importance from the total impurity decrease
+'''
+
+[[notes]]
+id = "ml-tree-overfitting"
+topic = "decision-trees"
+title = "Overfitting in trees + pruning"
+content = '''
+- A fully grown tree can memorize the training set, one leaf per example
+- Controls: max depth, min samples per leaf, min impurity decrease
+- Post-pruning: grow the full tree, then cut back branches that don't help on validation data (cost complexity pruning)
+- Shallow trees = high bias, deep trees = high variance
+'''
+
+[[notes]]
+id = "ml-gradient-descent"
+topic = "optimization"
+title = "Gradient descent"
+content = '''
+- Minimize the loss L(w) by stepping against the gradient: w <- w - η ∇L(w)
+- η = learning rate
+- Batch GD uses all the data per step, stochastic GD one example, mini-batch in between
+- Convex loss -> converges to the global minimum, neural nets are non-convex (local minima, saddle points)
+- Feature scaling makes the loss surface rounder and convergence faster
+'''
+
+[[notes]]
+id = "ml-momentum-sgd"
+topic = "optimization"
+title = "SGD with momentum, Adam"
+content = '''
+- Momentum keeps a running velocity: v <- βv + ∇L, w <- w - ηv, β ≈ 0.9
+- Like a ball rolling downhill: builds up speed in consistent directions, damps oscillation across a ravine
+- Nesterov momentum looks ahead before computing the gradient
+- Adam = momentum + per-parameter adaptive step sizes (from RMSProp), default lr 1e-3
+'''
+
+[[notes]]
+id = "ml-learning-rate"
+topic = "optimization"
+title = "Choosing the learning rate"
+content = '''
+- Too big: the loss oscillates or diverges, too small: painfully slow, stuck on plateaus
+- LR range test: increase the lr exponentially over one epoch and plot the loss
+- Schedules: step decay, cosine annealing, warmup for the first few hundred steps
+- If the loss goes to NaN, lower the learning rate first
+'''
+
+[[notes]]
+id = "ml-genetic-algorithms"
+topic = "genetic-algorithms"
+title = "Genetic algorithms"
+content = '''
+- Search/optimization inspired by natural selection
+- Population of candidate solutions encoded as chromosomes (bit strings)
+- A fitness function scores each candidate
+- Selection: fitter candidates are more likely to become parents (roulette wheel, tournament)
+- Crossover combines two parents, mutation flips random bits
+- Repeat for many generations
+'''
+
+[[notes]]
+id = "ml-ga-operators"
+topic = "genetic-algorithms"
+title = "GA operators + parameters"
+content = '''
+- One-point vs uniform crossover
+- Mutation rate usually small (1/L for bit strings), too high -> random search
+- Elitism: copy the best few straight into the next generation
+- Premature convergence: the population loses diversity and gets stuck, fix with a larger population or niching
+- Useful for odd search spaces where you can't take gradients (scheduling, antenna design)
+'''
+
+[[notes]]
+id = "ml-ga-tsp"
+topic = "genetic-algorithms"
+title = "Lab: GA for the traveling salesman"
+content = '''
+- Encode a tour as a permutation of cities
+- Fitness = 1 / total route length
+- Need order crossover (OX) so that children are still valid permutations
+- Swap mutation: exchange two cities
+- Our run: 50 cities, population 200, best tour ~40% shorter than random after 500 generations
+'''

@@ -1,0 +1,145 @@
+subject = "chemistry"
+course = "CHEM 110 - General Chemistry"
+
+[[notes]]
+id = "chem-equilibrium-constant"
+topic = "equilibrium"
+title = "Ch 15 - Chemical equilibrium"
+content = '''
+- Reversible reactions: aA + bB <=> cC + dD
+- At equilibrium the forward rate equals the reverse rate and concentrations stop changing (dynamic, not static)
+- K = [C]^c [D]^d / [A]^a [B]^b, pure solids and liquids left out
+- K >> 1 products favored, K << 1 reactants favored
+- Reaction quotient Q: if Q < K the reaction runs forward until it reaches equilibrium
+'''
+
+[[notes]]
+id = "chem-le-chatelier"
+topic = "equilibrium"
+title = "Le Chatelier's principle"
+content = '''
+If a system at equilibrium is disturbed, it shifts to partially undo the disturbance
+- Add reactant or remove product -> shifts right
+- Increase pressure -> shifts toward fewer moles of gas
+- Raise temperature -> favors the endothermic direction (the only change that alters K)
+- Catalyst: no shift, equilibrium is just reached faster
+Haber process: high pressure, moderate temperature to make ammonia
+'''
+
+[[notes]]
+id = "chem-cobalt-lab"
+topic = "equilibrium"
+title = "Lab 6 - cobalt chloride color change"
+content = '''
+Pink solution in the beaker turned blue when we heated it and went back to pink in the ice bath.
+Adding concentrated HCl also pushed it blue, adding water brought the pink back.
+So the forward reaction absorbs heat, and the mixture keeps adjusting itself to offset whatever we did to it.
+Write-up due Friday: explain each color change in terms of which side was favored.
+'''
+
+[[notes]]
+id = "chem-galvanic-cell"
+topic = "electrochemistry"
+title = "Galvanic cells"
+content = '''
+- A galvanic (voltaic) cell turns a spontaneous redox reaction into an electric current
+- Anode = oxidation (loses electrons), cathode = reduction. "An Ox, Red Cat"
+- Electrons flow anode -> cathode through the wire, the salt bridge keeps charges balanced
+- Cell potential E°cell = E°cathode - E°anode, positive means spontaneous
+- Daniell cell: Zn | Zn2+ || Cu2+ | Cu, about 1.10 V
+'''
+
+[[notes]]
+id = "chem-redox"
+topic = "electrochemistry"
+title = "Redox + oxidation numbers"
+content = '''
+OIL RIG: oxidation is loss, reduction is gain (of electrons)
+- Oxidation number rules: elements = 0, O usually -2, H usually +1, sum = overall charge
+- Oxidizing agent gets reduced, reducing agent gets oxidized
+- Balancing in acid: split into half-reactions, balance O with H2O, H with H+, then charge with e-
+- Rusting of iron = slow redox
+'''
+
+[[notes]]
+id = "chem-batteries"
+topic = "electrochemistry"
+title = "How batteries store energy"
+content = '''
+A battery is chemistry packaged so the reaction can only proceed if electrons take the long way round through your phone.
+Lithium-ion: lithium ions shuttle between graphite and a metal oxide through the electrolyte.
+Charging forces the reaction backwards and stores the energy again.
+Capacity fades because side reactions slowly consume the lithium.
+Swelling and fires come from overheating, a damaged separator, or a short circuit.
+'''
+
+[[notes]]
+id = "chem-ph"
+topic = "acids-bases"
+title = "Acids, bases, and pH"
+content = '''
+- Brønsted-Lowry: acid donates H+, base accepts H+
+- pH = -log[H+], pH 7 is neutral at 25°C, each unit = 10x change
+- Strong acids (HCl, HNO3, H2SO4) dissociate completely, weak acids (acetic) only partially, use Ka
+- pOH = 14 - pH
+- Conjugate pairs: HA / A-
+'''
+
+[[notes]]
+id = "chem-buffers"
+topic = "acids-bases"
+title = "Buffers"
+content = '''
+- Weak acid + its conjugate base, resists pH change when small amounts of acid or base are added
+- Henderson-Hasselbalch: pH = pKa + log([A-]/[HA])
+- Best buffering when pH ≈ pKa
+- Blood: carbonic acid / bicarbonate system keeps pH near 7.4
+- Capacity runs out once one component is used up
+'''
+
+[[notes]]
+id = "chem-titration"
+topic = "acids-bases"
+title = "Titration lab notes"
+content = '''
+- Burette with NaOH of known molarity, flask with HCl + phenolphthalein
+- Swirl, go dropwise near the end, stop at a faint pink that lasts 30 s
+- Equivalence point: moles acid = moles base, for strong acid/strong base it's pH 7
+- Weak acid + strong base: equivalence above 7, at the half-equivalence point pH = pKa
+- Calc: M1V1 = M2V2 for a 1:1 reaction
+'''
+
+[[notes]]
+id = "chem-ionic-covalent"
+topic = "bonding"
+title = "Chemical bonds: ionic vs covalent"
+content = '''
+- Ionic bond: electron transfer, metal + nonmetal, NaCl lattice, high melting point
+- Covalent bond: shared electron pairs between nonmetals, single/double/triple bonds
+- Polar covalent when the electronegativity difference is ~0.4-1.7
+- Bond energy = energy needed to break the bond, triple bonds are shortest and strongest
+- Metallic bonding: sea of delocalized electrons
+'''
+
+[[notes]]
+id = "chem-lewis-vsepr"
+topic = "bonding"
+title = "Lewis structures + VSEPR"
+content = '''
+- Count valence electrons, least electronegative atom in the center, fill octets
+- Formal charge = valence - nonbonding - bonds, the best structure minimizes it
+- VSEPR: electron domains spread out as far apart as possible
+- 4 domains, 0 lone pairs = tetrahedral (CH4, 109.5°), 2 lone pairs = bent (H2O, 104.5°)
+- Resonance structures for ozone and carbonate
+'''
+
+[[notes]]
+id = "chem-intermolecular"
+topic = "bonding"
+title = "Intermolecular forces"
+content = '''
+- Forces between molecules, much weaker than the covalent bonds inside them
+- London dispersion (all molecules, grows with size), dipole-dipole (polar molecules), hydrogen bonding (H on N, O, F)
+- Explains boiling points: water boils at 100°C while H2S is a gas at room temperature
+- Ice floats because hydrogen bonds lock it into an open lattice
+'''
