@@ -3,16 +3,14 @@ Enhanced rate limiting and cost control for StudentsAI MVP.
 Implements per-user and per-IP rate limiting with different tiers and AI cost tracking.
 """
 
-import asyncio
+import contextlib
+import logging
 import time
-from typing import Dict, Optional, Tuple
 from dataclasses import dataclass
 from enum import Enum
+
 import redis.asyncio as redis
 from fastapi import HTTPException, Request
-import json
-import logging
-from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -86,11 +84,11 @@ class EnhancedRateLimiter:
 
     def __init__(self, redis_url: str = "redis://localhost:6379"):
         self.redis_url = redis_url
-        self.redis_client: Optional[redis.Redis] = None
-        self.local_cache: Dict[str, Dict] = {}
+        self.redis_client: redis.Redis | None = None
+        self.local_cache: dict[str, dict] = {}
         self.cache_ttl = 60  # Local cache TTL in seconds
         # In-memory user tier overrides (user_id -> UserTier)
-        self.user_tiers: Dict[str, UserTier] = {}
+        self.user_tiers: dict[str, UserTier] = {}
 
     async def init_redis(self):
         """Initialize Redis connection."""
@@ -117,7 +115,7 @@ class EnhancedRateLimiter:
         """Generate cache key for rate limiting."""
         return f"enhanced_ratelimit:{identifier}:{window}"
 
-    def _get_current_windows(self) -> Dict[str, int]:
+    def _get_current_windows(self) -> dict[str, int]:
         """Get current time windows for rate limiting."""
         now = int(time.time())
         return {"minute": now // 60, "hour": now // 3600, "day": now // 86400}
@@ -176,7 +174,7 @@ class EnhancedRateLimiter:
         for key in expired_keys:
             del self.local_cache[key]
 
-    def _get_user_tier(self, user_id: Optional[str]) -> UserTier:
+    def _get_user_tier(self, user_id: str | None) -> UserTier:
         """Get user tier. In MVP, all users are FREE tier."""
         if user_id and user_id in self.user_tiers:
             return self.user_tiers[user_id]
@@ -184,13 +182,10 @@ class EnhancedRateLimiter:
 
     def set_user_tier(self, user_id: str, tier: UserTier):
         """Override a user's tier for rate limiting decisions."""
-        try:
+        with contextlib.suppress(Exception):
             self.user_tiers[user_id] = tier
-        except Exception:
-            # Best-effort; avoid raising during request path
-            pass
 
-    def _get_rate_limits(self, user_id: Optional[str]) -> RateLimit:
+    def _get_rate_limits(self, user_id: str | None) -> RateLimit:
         """Get rate limits for user or anonymous."""
         if user_id:
             tier = self._get_user_tier(user_id)
@@ -200,9 +195,9 @@ class EnhancedRateLimiter:
     async def check_rate_limit(
         self,
         identifier: str,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
         endpoint_type: str = "general",
-    ) -> Tuple[bool, Dict[str, int]]:
+    ) -> tuple[bool, dict[str, int]]:
         """
         Check if request is within rate limits.
 
@@ -232,7 +227,7 @@ class EnhancedRateLimiter:
 
         remaining = {}
 
-        for window, limit, ttl in checks:
+        for window, limit, _ttl in checks:
             key = self._get_cache_key(
                 identifier, f"{window}:{windows.get(window, windows['day'])}"
             )
@@ -248,9 +243,9 @@ class EnhancedRateLimiter:
     async def record_request(
         self,
         identifier: str,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
         endpoint_type: str = "general",
-    ) -> Dict[str, int]:
+    ) -> dict[str, int]:
         """
         Record a request and return updated remaining limits.
 
@@ -290,22 +285,22 @@ class EnhancedRateLimiter:
         return remaining
 
     async def check_content_limits(
-        self, content_length: int, user_id: Optional[str] = None
+        self, content_length: int, user_id: str | None = None
     ) -> bool:
         """Check if content length is within limits."""
         limits = self._get_rate_limits(user_id)
         return content_length <= limits.max_note_length
 
     async def check_flashcard_limits(
-        self, flashcard_count: int, user_id: Optional[str] = None
+        self, flashcard_count: int, user_id: str | None = None
     ) -> bool:
         """Check if flashcard count is within limits."""
         limits = self._get_rate_limits(user_id)
         return flashcard_count <= limits.max_flashcards_per_note
 
     async def get_usage_stats(
-        self, identifier: str, user_id: Optional[str] = None
-    ) -> Dict:
+        self, identifier: str, user_id: str | None = None
+    ) -> dict:
         """Get current usage statistics."""
         limits = self._get_rate_limits(user_id)
         windows = self._get_current_windows()
@@ -364,7 +359,7 @@ async def get_client_identifier(request: Request) -> str:
 
 
 async def check_enhanced_rate_limit(
-    request: Request, user_id: Optional[str] = None, endpoint_type: str = "general"
+    request: Request, user_id: str | None = None, endpoint_type: str = "general"
 ):
     """Enhanced middleware function to check rate limits."""
     identifier = await get_client_identifier(request)
@@ -399,7 +394,7 @@ async def check_enhanced_rate_limit(
     return remaining
 
 
-async def check_content_length(content: str, user_id: Optional[str] = None):
+async def check_content_length(content: str, user_id: str | None = None):
     """Check if content length is within limits."""
     content_length = len(content)
 
@@ -420,7 +415,7 @@ async def check_content_length(content: str, user_id: Optional[str] = None):
         )
 
 
-async def check_flashcard_count(count: int, user_id: Optional[str] = None):
+async def check_flashcard_count(count: int, user_id: str | None = None):
     """Check if flashcard count is within limits."""
     if not await enhanced_rate_limiter.check_flashcard_limits(count, user_id):
         limits = enhanced_rate_limiter._get_rate_limits(user_id)

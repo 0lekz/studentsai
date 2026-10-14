@@ -4,26 +4,28 @@ Demo Data Creation Script for StudentsAI MVP
 Populates a user account with realistic study data for demonstrations
 """
 
-import sys
 import os
+import sys
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from datetime import datetime, timedelta, timezone
 import uuid
+from datetime import UTC, datetime, timedelta
+
 from sqlalchemy.orm import Session
+
+from app.config import DEBUG
 from app.database import (
+    Event,
+    Flashcard,
+    Note,
+    add_flashcard_tag,
+    create_flashcard,
+    create_note,
     get_db,
     get_user_by_email,
-    create_note,
-    create_flashcard,
-    record_event,
     set_note_tags,
-    add_flashcard_tag,
 )
-from app.auth import get_password_hash
-from app.database import Note, Flashcard, Event, PendingEmailChange
-from app.config import DATABASE_URL, DEBUG
 
 
 def create_demo_notes(db: Session, user_id: uuid.UUID):
@@ -866,7 +868,7 @@ def create_demo_activity(db: Session, user_id: uuid.UUID, notes, flashcards):
     """Create realistic activity data over the last 30 days"""
 
     # Generate dates for the last 30 days
-    end_date = datetime.now(timezone.utc)
+    end_date = datetime.now(UTC)
     start_date = end_date - timedelta(days=30)
 
     # Create daily activity patterns (more activity on weekdays, some weekends)
@@ -877,12 +879,8 @@ def create_demo_activity(db: Session, user_id: uuid.UUID, notes, flashcards):
         # More activity on weekdays (Monday = 0, Sunday = 6)
         weekday = current_date.weekday()
 
-        if weekday < 5:  # Weekday
-            # 3-7 activities per weekday
-            num_activities = 3 + (day_count % 5)
-        else:  # Weekend
-            # 1-3 activities per weekend
-            num_activities = 1 + (day_count % 3)
+        # 3-7 activities on weekdays, 1-3 on weekends
+        num_activities = 3 + (day_count % 5) if weekday < 5 else 1 + (day_count % 3)
 
         # Create activities for this day
         for i in range(num_activities):
@@ -976,11 +974,11 @@ def main():
         create_demo_activity(db, user.id, notes, flashcards)
 
         if DEBUG:
-            print(f"\n🎉 Demo data created successfully!")
+            print("\n🎉 Demo data created successfully!")
             print(f"   📝 Notes: {len(notes)}")
             print(f"   🃏 Flashcards: {len(flashcards)}")
-            print(f"   📊 Activity: 30 days of realistic data")
-            print(f"\n🚀 Your account is now ready for screenshots and demos!")
+            print("   📊 Activity: 30 days of realistic data")
+            print("\n🚀 Your account is now ready for screenshots and demos!")
 
     except Exception as e:
         if DEBUG:

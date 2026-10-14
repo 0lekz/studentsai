@@ -3,27 +3,27 @@ Database configuration and models for StudentsAI MVP
 """
 
 import uuid
-from datetime import datetime, timezone, timedelta
-from typing import Optional, Dict, Any, List
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from sqlalchemy import (
-    create_engine,
-    Column,
-    String,
-    Text,
-    DateTime,
-    Date,
-    Integer,
-    ForeignKey,
     JSON,
     Boolean,
+    Column,
+    Date,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    create_engine,
+    or_,
 )
-from sqlalchemy.dialects.postgresql import UUID, ARRAY
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session, relationship
-from sqlalchemy.sql import func
 from sqlalchemy import text as sql_text
-from sqlalchemy import or_
+from sqlalchemy.dialects.postgresql import ARRAY, UUID
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import Session, relationship, sessionmaker
+from sqlalchemy.sql import func
 
 from .config import DATABASE_URL
 
@@ -387,12 +387,12 @@ def drop_tables():
 
 
 # Database utilities
-def get_user_by_email(db: Session, email: str) -> Optional[User]:
+def get_user_by_email(db: Session, email: str) -> User | None:
     """Get user by email"""
     return db.query(User).filter(User.email == email).first()
 
 
-def get_user_by_id(db: Session, user_id: uuid.UUID) -> Optional[User]:
+def get_user_by_id(db: Session, user_id: uuid.UUID) -> User | None:
     """Get user by ID"""
     return db.query(User).filter(User.id == user_id).first()
 
@@ -400,10 +400,10 @@ def get_user_by_id(db: Session, user_id: uuid.UUID) -> Optional[User]:
 def create_user(
     db: Session,
     email: str,
-    password_hash: str = None,
-    username: str = None,
-    oauth_provider: str = None,
-    oauth_id: str = None,
+    password_hash: str | None = None,
+    username: str | None = None,
+    oauth_provider: str | None = None,
+    oauth_id: str | None = None,
 ) -> User:
     """Create new user (supports both password and OAuth)"""
     if username is None:
@@ -430,9 +430,7 @@ def create_user(
     return user
 
 
-def get_user_by_oauth(
-    db: Session, oauth_provider: str, oauth_id: str
-) -> Optional[User]:
+def get_user_by_oauth(db: Session, oauth_provider: str, oauth_id: str) -> User | None:
     """Get user by OAuth provider and ID"""
     return (
         db.query(User)
@@ -442,7 +440,11 @@ def get_user_by_oauth(
 
 
 def create_or_get_oauth_user(
-    db: Session, email: str, oauth_provider: str, oauth_id: str, username: str = None
+    db: Session,
+    email: str,
+    oauth_provider: str,
+    oauth_id: str,
+    username: str | None = None,
 ) -> User:
     """Create new OAuth user or get existing one"""
     # First try to find by OAuth ID
@@ -476,12 +478,12 @@ def create_or_get_oauth_user(
     return user
 
 
-def get_user_by_username(db: Session, username: str) -> Optional[User]:
+def get_user_by_username(db: Session, username: str) -> User | None:
     """Get user by username"""
     return db.query(User).filter(User.username == username).first()
 
 
-def update_user_profile(db: Session, user_id: uuid.UUID, **kwargs) -> Optional[User]:
+def update_user_profile(db: Session, user_id: uuid.UUID, **kwargs) -> User | None:
     """Update user profile fields"""
     user = get_user_by_id(db, user_id)
     if not user:
@@ -491,7 +493,7 @@ def update_user_profile(db: Session, user_id: uuid.UUID, **kwargs) -> Optional[U
         if hasattr(user, field):
             setattr(user, field, value)
 
-    user.updated_at = datetime.now(timezone.utc)
+    user.updated_at = datetime.now(UTC)
     db.commit()
     db.refresh(user)
     return user
@@ -518,9 +520,7 @@ def get_notes_by_titles(
     )
 
 
-def get_note_by_id(
-    db: Session, note_id: uuid.UUID, user_id: uuid.UUID
-) -> Optional[Note]:
+def get_note_by_id(db: Session, note_id: uuid.UUID, user_id: uuid.UUID) -> Note | None:
     """Get note by ID for a specific user"""
     return db.query(Note).filter(Note.id == note_id, Note.user_id == user_id).first()
 
@@ -535,7 +535,11 @@ def create_note(db: Session, title: str, content: str, user_id: uuid.UUID) -> No
 
 
 def update_note(
-    db: Session, note: Note, title: str = None, content: str = None, summary: str = None
+    db: Session,
+    note: Note,
+    title: str | None = None,
+    content: str | None = None,
+    summary: str | None = None,
 ) -> Note:
     """Update existing note"""
     if title is not None:
@@ -546,7 +550,7 @@ def update_note(
         note.summary = summary
     # Tags update handled via separate helper to avoid accidental wipes
 
-    note.updated_at = datetime.now(timezone.utc)
+    note.updated_at = datetime.now(UTC)
     db.commit()
     db.refresh(note)
     return note
@@ -559,27 +563,30 @@ def delete_note(db: Session, note: Note):
         flashcards = db.query(Flashcard).filter(Flashcard.note_id == note.id).all()
         for flashcard in flashcards:
             # Delete SRS data first
-            db.query(FlashcardSRS).filter(FlashcardSRS.flashcard_id == flashcard.id).delete()
+            db.query(FlashcardSRS).filter(
+                FlashcardSRS.flashcard_id == flashcard.id
+            ).delete()
             # Delete the flashcard
             db.delete(flashcard)
-        
+
         # Delete note similarities
         db.query(NoteSimilarity).filter(
-            (NoteSimilarity.note_a_id == note.id) | (NoteSimilarity.note_b_id == note.id)
+            (NoteSimilarity.note_a_id == note.id)
+            | (NoteSimilarity.note_b_id == note.id)
         ).delete()
-        
+
         # Delete note links
         db.query(NoteLink).filter(
             (NoteLink.from_note_id == note.id) | (NoteLink.to_note_id == note.id)
         ).delete()
-        
+
         # Finally delete the note
         db.delete(note)
         db.commit()
-        
+
     except Exception as e:
         db.rollback()
-        raise Exception(f"Failed to delete note: {str(e)}")
+        raise Exception(f"Failed to delete note: {e!s}") from e
 
 
 def get_flashcards_by_note(db: Session, note_id: uuid.UUID):
@@ -614,13 +621,13 @@ def record_event(
     db: Session,
     user_id: uuid.UUID,
     event_type: str,
-    target_id: Optional[uuid.UUID] = None,
-    metadata: Optional[Dict[str, Any]] = None,
-    occurred_at: Optional[datetime] = None,
+    target_id: uuid.UUID | None = None,
+    metadata: dict[str, Any] | None = None,
+    occurred_at: datetime | None = None,
 ):
     from .database import Event  # local import to avoid circular in type hints
 
-    ts = occurred_at or datetime.now(timezone.utc)
+    ts = occurred_at or datetime.now(UTC)
     event = Event(
         user_id=user_id,
         event_type=event_type,
@@ -645,6 +652,7 @@ def get_recent_events(db: Session, user_id: uuid.UUID, limit: int = 10):
 
 def get_totals(db: Session, user_id: uuid.UUID):
     from sqlalchemy import func as _func
+
     from .database import Event
 
     totals = (
@@ -670,6 +678,7 @@ def get_activity_counts(
     kind: str = "all",
 ):
     from sqlalchemy import func as _func
+
     from .database import Event
 
     q = db.query(
@@ -694,6 +703,7 @@ def get_activity_counts(
 
 def compute_streaks(db: Session, user_id: uuid.UUID):
     from sqlalchemy import func as _func
+
     from .database import Event
 
     rows = (
@@ -724,7 +734,7 @@ def compute_streaks(db: Session, user_id: uuid.UUID):
     days_set = set(days)
     from datetime import timedelta
 
-    today = datetime.now(timezone.utc).date()
+    today = datetime.now(UTC).date()
     # current streak
     cur = 0
     d = today
@@ -860,9 +870,9 @@ def get_similarities_for_notes(db: Session, note_ids: list[uuid.UUID]):
 def get_user_flashcards(
     db: Session,
     user_id: uuid.UUID,
-    tags: Optional[List[str]] = None,
-    search: Optional[str] = None,
-) -> List[Flashcard]:
+    tags: list[str] | None = None,
+    search: str | None = None,
+) -> list[Flashcard]:
     """Get all flashcards for a user, optionally filtered by tags and search query"""
     query = db.query(Flashcard).filter(Flashcard.user_id == user_id)
 
@@ -885,7 +895,7 @@ def get_user_flashcards(
     ).all()
 
 
-def get_flashcards_by_tag(db: Session, user_id: uuid.UUID, tag: str) -> List[Flashcard]:
+def get_flashcards_by_tag(db: Session, user_id: uuid.UUID, tag: str) -> list[Flashcard]:
     """Get flashcards with a specific tag for a user"""
     return (
         db.query(Flashcard)
@@ -904,7 +914,7 @@ def update_flashcard_progress(
 
     # Update progress
     flashcard.review_count += 1
-    flashcard.last_reviewed = datetime.now(timezone.utc)
+    flashcard.last_reviewed = datetime.now(UTC)
     flashcard.last_performance = performance_score
 
     # Calculate new mastery level (simple algorithm - can be improved)
@@ -912,7 +922,7 @@ def update_flashcard_progress(
         flashcard.mastery_level = min(100, flashcard.mastery_level + 20)
         # Mark as recently learned if mastery is high
         if flashcard.mastery_level >= 80 and "recently_learned" not in flashcard.tags:
-            flashcard.tags = flashcard.tags + ["recently_learned"]
+            flashcard.tags = [*flashcard.tags, "recently_learned"]
     elif performance_score < 50:
         flashcard.mastery_level = max(0, flashcard.mastery_level - 10)
         # Remove recently learned tag if performance drops
@@ -925,18 +935,16 @@ def update_flashcard_progress(
     if performance_score >= 80:
         # Good performance - review later
         days_until_review = min(30, flashcard.review_count * 2)
-        flashcard.next_review = datetime.now(timezone.utc) + timedelta(
-            days=days_until_review
-        )
+        flashcard.next_review = datetime.now(UTC) + timedelta(days=days_until_review)
     else:
         # Poor performance - review soon
-        flashcard.next_review = datetime.now(timezone.utc) + timedelta(days=1)
+        flashcard.next_review = datetime.now(UTC) + timedelta(days=1)
 
     # Store user answer history
     if not flashcard.user_answer_history:
         flashcard.user_answer_history = {}
 
-    flashcard.user_answer_history[str(datetime.now(timezone.utc))] = {
+    flashcard.user_answer_history[str(datetime.now(UTC))] = {
         "answer": user_answer,
         "score": performance_score,
         "mastery": flashcard.mastery_level,
@@ -987,9 +995,9 @@ def remove_flashcard_tag(db: Session, flashcard_id: uuid.UUID, tag: str) -> Flas
 
 def get_due_flashcards(
     db: Session, user_id: uuid.UUID, limit: int = 20
-) -> List[Flashcard]:
+) -> list[Flashcard]:
     """Get flashcards that are due for review"""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return (
         db.query(Flashcard)
         .filter(
@@ -1008,7 +1016,7 @@ def create_contextual_flashcard(
     answer: str,
     note_id: uuid.UUID,
     user_id: uuid.UUID,
-    context_notes: List[uuid.UUID],
+    context_notes: list[uuid.UUID],
 ) -> Flashcard:
     """Create a contextual flashcard with multiple note context"""
     flashcard = Flashcard(
@@ -1042,7 +1050,7 @@ def get_or_create_srs_entry(
             user_id=user_id,
             efactor=250,  # 2.5 * 100
             interval_days=1,
-            due_date=datetime.now(timezone.utc).date(),
+            due_date=datetime.now(UTC).date(),
             repetitions=0,
         )
         db.add(srs_entry)
@@ -1087,11 +1095,9 @@ def update_srs_after_review(
         srs_entry.efactor = round(new_ef * 100)  # Store as integer
 
     # Calculate next due date
-    next_due = datetime.now(timezone.utc).date() + timedelta(
-        days=srs_entry.interval_days
-    )
+    next_due = datetime.now(UTC).date() + timedelta(days=srs_entry.interval_days)
     srs_entry.due_date = next_due
-    srs_entry.updated_at = datetime.now(timezone.utc)
+    srs_entry.updated_at = datetime.now(UTC)
 
     db.commit()
     db.refresh(srs_entry)
@@ -1100,9 +1106,9 @@ def update_srs_after_review(
 
 def get_due_flashcards_srs(
     db: Session, user_id: uuid.UUID, limit: int = 20
-) -> List[Flashcard]:
+) -> list[Flashcard]:
     """Get flashcards that are due for review using SRS data"""
-    today = datetime.now(timezone.utc).date()
+    today = datetime.now(UTC).date()
 
     # Get flashcards due today or overdue
     due_srs = (
@@ -1135,7 +1141,7 @@ def create_flashcard_set(
     user_id: uuid.UUID,
     mode: str,
     seed_note_id: uuid.UUID,
-    neighbor_note_ids: Optional[List[uuid.UUID]] = None,
+    neighbor_note_ids: list[uuid.UUID] | None = None,
 ) -> FlashcardSet:
     """Create a flashcard set to track context bundles"""
     flashcard_set = FlashcardSet(
@@ -1150,7 +1156,7 @@ def create_flashcard_set(
     return flashcard_set
 
 
-def get_flashcard_sets_by_user(db: Session, user_id: uuid.UUID) -> List[FlashcardSet]:
+def get_flashcard_sets_by_user(db: Session, user_id: uuid.UUID) -> list[FlashcardSet]:
     """Get all flashcard sets for a user"""
     return (
         db.query(FlashcardSet)
@@ -1162,7 +1168,7 @@ def get_flashcard_sets_by_user(db: Session, user_id: uuid.UUID) -> List[Flashcar
 
 def archive_mastered_flashcards(
     db: Session, user_id: uuid.UUID, min_repetitions: int = 3
-) -> List[Flashcard]:
+) -> list[Flashcard]:
     """Find flashcards that have been mastered and suggest archiving"""
     mastered_srs = (
         db.query(FlashcardSRS)

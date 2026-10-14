@@ -3,19 +3,19 @@ Rate limiting for StudentsAI MVP API
 """
 
 import time
-from typing import Dict, Optional
 from collections import defaultdict, deque
-from fastapi import HTTPException, Request, status
 from functools import wraps
 
-from .config import RATE_LIMIT_REQUESTS, RATE_LIMIT_WINDOW, DEBUG, settings
+from fastapi import HTTPException, Request, status
+
+from .config import DEBUG, RATE_LIMIT_REQUESTS, RATE_LIMIT_WINDOW, settings
 
 
 class InMemoryRateLimiter:
     """Simple in-memory rate limiter using sliding window"""
 
     def __init__(self):
-        self.requests: Dict[str, deque] = defaultdict(deque)
+        self.requests: dict[str, deque] = defaultdict(deque)
 
     def is_allowed(self, key: str, limit: int, window: int) -> bool:
         """Check if request is allowed within rate limit"""
@@ -32,7 +32,7 @@ class InMemoryRateLimiter:
 
         return False
 
-    def get_reset_time(self, key: str, window: int) -> Optional[float]:
+    def get_reset_time(self, key: str, window: int) -> float | None:
         """Get time when rate limit resets"""
         if not self.requests[key]:
             return None
@@ -59,7 +59,7 @@ def get_client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
-def get_rate_limit_key(request: Request, user_id: Optional[str] = None) -> str:
+def get_rate_limit_key(request: Request, user_id: str | None = None) -> str:
     """Generate rate limit key based on user or IP"""
     if user_id:
         return f"user:{user_id}"
@@ -70,7 +70,7 @@ def get_rate_limit_key(request: Request, user_id: Optional[str] = None) -> str:
 
 async def check_rate_limit(
     request: Request,
-    user_id: Optional[str] = None,
+    user_id: str | None = None,
     limit: int = RATE_LIMIT_REQUESTS,
     window: int = RATE_LIMIT_WINDOW,
 ):
@@ -140,18 +140,18 @@ AUTH_RATE_LIMIT = 5  # Auth attempts per 15 minutes
 AUTH_RATE_WINDOW = 900
 
 
-async def check_ai_rate_limit(request: Request, user_id: Optional[str] = None):
+async def check_ai_rate_limit(request: Request, user_id: str | None = None):
     """Rate limit for AI operations"""
     if DEBUG:
         return
     await check_rate_limit(request, user_id, AI_RATE_LIMIT, AI_RATE_WINDOW)
 
 
-async def check_upload_rate_limit(request: Request, user_id: Optional[str] = None):
+async def check_upload_rate_limit(request: Request, user_id: str | None = None):
     """Rate limit for file uploads"""
     await check_rate_limit(request, user_id, UPLOAD_RATE_LIMIT, UPLOAD_RATE_WINDOW)
 
 
-async def check_auth_rate_limit(request: Request, user_id: Optional[str] = None):
+async def check_auth_rate_limit(request: Request, user_id: str | None = None):
     """Rate limit for authentication attempts"""
     await check_rate_limit(request, user_id, AUTH_RATE_LIMIT, AUTH_RATE_WINDOW)

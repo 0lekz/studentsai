@@ -2,15 +2,16 @@
 OAuth service for handling Google OAuth authentication
 """
 
-import requests
 import logging
-from typing import Dict, Any
+from typing import Any
+
+import requests
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from .auth import create_access_token
 from .config import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI
 from .database import create_or_get_oauth_user
-from .auth import create_access_token
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -24,7 +25,7 @@ class GoogleOAuthService:
     GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo"
 
     @classmethod
-    def get_google_user_info(cls, code: str) -> Dict[str, Any]:
+    def get_google_user_info(cls, code: str) -> dict[str, Any]:
         """Exchange authorization code for user info"""
         try:
             logger.info(f"Starting Google OAuth exchange for code: {code[:20]}...")
@@ -105,20 +106,20 @@ class GoogleOAuthService:
             }
 
         except requests.RequestException as e:
-            logger.error(f"Request exception during Google OAuth: {str(e)}")
+            logger.error(f"Request exception during Google OAuth: {e!s}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Failed to communicate with Google: {str(e)}",
-            )
+                detail=f"Failed to communicate with Google: {e!s}",
+            ) from e
         except Exception as e:
-            logger.error(f"Unexpected error during Google OAuth: {str(e)}")
+            logger.error(f"Unexpected error during Google OAuth: {e!s}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Unexpected error during Google OAuth: {str(e)}",
-            )
+                detail=f"Unexpected error during Google OAuth: {e!s}",
+            ) from e
 
     @classmethod
-    def authenticate_user(cls, db: Session, code: str) -> Dict[str, Any]:
+    def authenticate_user(cls, db: Session, code: str) -> dict[str, Any]:
         """Authenticate user with Google OAuth code"""
         try:
             logger.info("Starting Google OAuth authentication process")
@@ -164,8 +165,8 @@ class GoogleOAuthService:
             return result
 
         except Exception as e:
-            logger.error(f"Error in authenticate_user: {str(e)}", exc_info=True)
+            logger.error(f"Error in authenticate_user: {e!s}", exc_info=True)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Authentication failed: {str(e)}",
-            )
+                detail=f"Authentication failed: {e!s}",
+            ) from e

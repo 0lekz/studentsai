@@ -2,10 +2,7 @@
 Configuration management for StudentsAI MVP
 """
 
-import os
-from typing import List
 from pydantic_settings import BaseSettings
-from pydantic import validator
 
 
 class Settings(BaseSettings):
@@ -48,7 +45,7 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
     frontend_url: str = "http://localhost:3000"  # NEW: Frontend URL for email links (use https://www.studentsai.org for production)
-    backend_cors_origins: List[str] = [
+    backend_cors_origins: list[str] = [
         "http://localhost:3000",
         "http://localhost:8000",
         "https://www.studentsai.org",

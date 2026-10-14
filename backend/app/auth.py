@@ -4,24 +4,22 @@ Authentication and authorization for StudentsAI MVP
 
 import uuid
 from datetime import datetime, timedelta
-from typing import Optional
 
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
-from .config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
+from .config import ACCESS_TOKEN_EXPIRE_MINUTES, ALGORITHM, SECRET_KEY
 from .database import (
+    create_user,
     get_db,
     get_user_by_email,
-    get_user_by_id,
     get_user_by_oauth,
-    create_user,
     get_user_by_username,
 )
-from .schemas import TokenData, UserCreate, UserLogin
+from .schemas import TokenData, UserCreate
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -40,7 +38,7 @@ def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
     """Create JWT access token"""
     to_encode = data.copy()
 
@@ -54,7 +52,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     return encoded_jwt
 
 
-def verify_token(token: str) -> Optional[TokenData]:
+def verify_token(token: str) -> TokenData | None:
     """Verify and decode JWT token"""
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
@@ -140,7 +138,7 @@ def get_current_user(
             raise credentials_exception
 
     except JWTError:
-        raise credentials_exception
+        raise credentials_exception from None
 
     user = get_user_by_email(db, email=token_data.email)
     if user is None:
@@ -166,7 +164,7 @@ def get_verified_user_id(current_user=Depends(get_current_user)) -> uuid.UUID:
 
 # Optional authentication (for public endpoints)
 def get_current_user_optional(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
     db: Session = Depends(get_db),
 ):
     """Get current user if authenticated, None otherwise"""

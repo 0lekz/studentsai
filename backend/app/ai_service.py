@@ -4,12 +4,13 @@ AI service integration for StudentsAI MVP using OpenAI
 
 import asyncio
 import logging
-from typing import List, Dict, Any
+import re
+from typing import Any
+
+import numpy as np
 import openai
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-import numpy as np
-import re
 
 from .config import OPENAI_API_KEY
 from .schemas import GeneratedFlashcard
@@ -59,12 +60,12 @@ class AIService:
             return summary
 
         except Exception as e:
-            logger.error(f"Error in summarize_text: {str(e)}")
-            raise Exception(f"Failed to generate summary: {str(e)}")
+            logger.error(f"Error in summarize_text: {e!s}")
+            raise Exception(f"Failed to generate summary: {e!s}") from e
 
     async def generate_flashcards(
         self, content: str, count: int = 5
-    ) -> List[GeneratedFlashcard]:
+    ) -> list[GeneratedFlashcard]:
         """Generate flashcards from text content"""
         try:
             prompt = f"""
@@ -122,7 +123,7 @@ class AIService:
                     return self._parse_flashcards_fallback(response_text, count)
 
                 # Normalize items; ignore malformed entries gracefully
-                normalized: List[GeneratedFlashcard] = []
+                normalized: list[GeneratedFlashcard] = []
                 for item in flashcards_data:
                     if isinstance(item, dict):
                         q = item.get("question")
@@ -143,12 +144,12 @@ class AIService:
                 return self._parse_flashcards_fallback(response_text, count)
 
         except Exception as e:
-            logger.error(f"Error in generate_flashcards: {str(e)}")
-            raise Exception(f"Failed to generate flashcards: {str(e)}")
+            logger.error(f"Error in generate_flashcards: {e!s}")
+            raise Exception(f"Failed to generate flashcards: {e!s}") from e
 
     def _parse_flashcards_fallback(
         self, text: str, count: int
-    ) -> List[GeneratedFlashcard]:
+    ) -> list[GeneratedFlashcard]:
         """Fallback parser for flashcards when JSON parsing fails"""
         flashcards = []
         lines = text.split("\n")
@@ -187,7 +188,7 @@ class AIService:
 
         return flashcards[:count]
 
-    def calculate_similarity(self, texts: List[str]) -> np.ndarray:
+    def calculate_similarity(self, texts: list[str]) -> np.ndarray:
         """Calculate similarity matrix between texts using TF-IDF"""
         if len(texts) < 2:
             return np.array([[1.0]])
@@ -214,14 +215,14 @@ class AIService:
             return boosted
 
         except Exception as e:
-            logger.error(f"Error calculating similarity: {str(e)}")
+            logger.error(f"Error calculating similarity: {e!s}")
             # Return identity matrix as fallback
             n = len(texts)
             return np.eye(n)
 
     def find_note_connections(
-        self, notes: List[Dict[str, Any]], threshold: float = 0.6
-    ) -> List[Dict[str, Any]]:
+        self, notes: list[dict[str, Any]], threshold: float = 0.6
+    ) -> list[dict[str, Any]]:
         """Find connections between notes based on content similarity"""
         if len(notes) < 2:
             return []
@@ -254,7 +255,7 @@ class AIService:
 
         return connections
 
-    def extract_keywords(self, text: str, max_keywords: int = 12) -> List[str]:
+    def extract_keywords(self, text: str, max_keywords: int = 12) -> list[str]:
         """Lightweight keyword extraction using TF-IDF on the single document split into chunks.
         For MVP: split text into sentences, compute tf-idf terms, pick top N terms.
         """
@@ -299,17 +300,17 @@ async def summarize_content(content: str) -> str:
 
 async def generate_flashcards_from_content(
     content: str, count: int = 5
-) -> List[GeneratedFlashcard]:
+) -> list[GeneratedFlashcard]:
     """Generate flashcards from content"""
     return await ai_service.generate_flashcards(content, count)
 
 
-def calculate_note_similarities(notes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def calculate_note_similarities(notes: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Calculate similarities between notes"""
     return ai_service.find_note_connections(notes)
 
 
-def extract_keywords_from_text(text: str, max_keywords: int = 12) -> List[str]:
+def extract_keywords_from_text(text: str, max_keywords: int = 12) -> list[str]:
     """Extract keywords from text using TF-IDF"""
     return ai_service.extract_keywords(text, max_keywords)
 

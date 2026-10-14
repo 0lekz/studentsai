@@ -2,176 +2,173 @@
 StudentsAI MVP - FastAPI Backend Application
 """
 
+import asyncio
+import contextlib
+import os
+import re
+import shutil
 import uuid
-from typing import List, Optional
+from datetime import UTC, datetime, timedelta
+from urllib.parse import urlparse
+
+import jwt
 from fastapi import (
-    FastAPI,
+    Body,
     Depends,
+    FastAPI,
+    File,
     HTTPException,
     Request,
-    status,
     UploadFile,
-    File,
-    Body,
+    status,
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy.orm import Session
-import os
 from sqlalchemy import text as sql_text
-import jwt
+from sqlalchemy.orm import Session
 
-from .config import (
-    ALLOWED_ORIGINS,
-    DEBUG,
-    HOST,
-    PORT,
-    GOOGLE_CLIENT_ID,
-    GOOGLE_REDIRECT_URI,
-    settings,
-)
-from .oauth_service import GoogleOAuthService
-from .database import (
-    get_db,
-    create_tables,
-    get_notes_by_user,
-    get_note_by_id,
-    create_note,
-    update_note,
-    delete_note,
-    get_flashcards_by_note,
-    create_flashcard,
-    set_note_tags,
-    create_note_link,
-    delete_note_link,
-    get_backlinks,
-    get_notes_by_titles,
-    replace_manual_links_for_note,
-    get_links_for_user_notes,
-    get_similarities_for_notes,
-    record_event,
-    get_recent_events,
-    get_totals,
-    get_activity_counts,
-    compute_streaks,
-    ActivityDaily,
-    get_user_by_id,
-    get_user_by_username,
-    get_user_by_email,
-    update_user_profile,
-    # Enhanced flashcard functions
-    get_user_flashcards,
-    get_flashcards_by_tag,
-    update_flashcard_progress,
-    add_flashcard_tag,
-    remove_flashcard_tag,
-    get_due_flashcards,
-    create_contextual_flashcard,
-    # SRS and flashcard set functions
-    get_or_create_srs_entry,
-    update_srs_after_review,
-    get_due_flashcards_srs,
-    create_flashcard_set,
-    get_flashcard_sets_by_user,
-    archive_mastered_flashcards,
-    PendingEmailChange,
-    delete_note,
-    User
-)
-from .schemas import (
-    UserCreate,
-    UserLogin,
-    Token,
-    GoogleOAuthRequest,
-    GoogleOAuthResponse,
-    NoteCreate,
-    NoteUpdate,
-    NoteResponse,
-    NoteListResponse,
-    FlashcardResponse,
-    SummarizeRequest,
-    SummarizeResponse,
-    GenerateFlashcardsRequest,
-    GenerateFlashcardsResponse,
-    GraphResponse,
-    SuccessResponse,
-    GraphNode,
-    NoteConnection,
-    BacklinkResponse,
-    KeywordsSuggestResponse,
-    UpdateTagsRequest,
-    ProfileSummaryResponse,
-    ActivityResponse,
-    ActivityDayCount,
-    EventItem,
-    EventIngestRequest,
-    UserResponse,
-    UserProfileUpdate,
-    UsernameCheck,
-    SettingsAppearance,
-    SettingsGraph,
-    SettingsAI,
-    SettingsStudyFlow,
-    SettingsAdvanced,
-    # Enhanced flashcard schemas
-    FlashcardReview,
-    FlashcardReviewResponse,
-    # New SRS and flashcard schemas
-    FlashcardSRSData,
-    FlashcardSetInfo,
-    FlashcardDetailedReview,
-    FlashcardReviewResult,
-    FlashcardGenerationRequest,
-    FlashcardGenerationResponse,
-    # Email verification schemas
-    EmailVerificationRequest,
-    EmailVerificationResponse,
-    VerifyEmailToken,
-    VerificationResponse,
-    EmailChangeRequest,
-    ForgotPasswordRequest,
-    ResetPasswordRequest,
-    SuccessResponse,
+from .ai_service import (
+    ai_service,
+    calculate_note_similarities,
+    extract_keywords_from_text,
+    generate_flashcards_from_content,
+    summarize_content,
 )
 from .auth import (
     authenticate_user,
-    register_user,
+    create_access_token,
     get_current_user,
     get_current_user_id,
-    get_verified_user_id,
-    create_access_token,
-    verify_password,
     get_password_hash,
+    get_verified_user_id,
+    register_user,
+    verify_password,
 )
-from .rate_limiter import check_rate_limit, check_ai_rate_limit, check_auth_rate_limit
-from .rate_limiter_enhanced import enhanced_rate_limiter, UserTier
-from urllib.parse import urlparse
-import re
-from .ai_service import (
-    summarize_content,
-    generate_flashcards_from_content,
-    calculate_note_similarities,
-    extract_keywords_from_text,
-    ai_service,
+from .config import (
+    ALLOWED_ORIGINS,
+    DEBUG,
+    GOOGLE_CLIENT_ID,
+    GOOGLE_REDIRECT_URI,
+    HOST,
+    PORT,
+    settings,
+)
+from .database import (
+    ActivityDaily,
+    Flashcard,
+    PendingEmailChange,
+    User,
+    add_flashcard_tag,
+    archive_mastered_flashcards,
+    compute_streaks,
+    create_contextual_flashcard,
+    create_flashcard,
+    create_flashcard_set,
+    create_note,
+    create_note_link,
+    create_tables,
+    delete_note,
+    delete_note_link,
+    get_activity_counts,
+    get_backlinks,
+    get_db,
+    get_due_flashcards,
+    get_due_flashcards_srs,
+    get_flashcard_sets_by_user,
+    get_flashcards_by_note,
+    get_links_for_user_notes,
+    get_note_by_id,
+    get_notes_by_titles,
+    get_notes_by_user,
+    # SRS and flashcard set functions
+    get_or_create_srs_entry,
+    get_recent_events,
+    get_similarities_for_notes,
+    get_totals,
+    get_user_by_email,
+    get_user_by_id,
+    get_user_by_username,
+    # Enhanced flashcard functions
+    get_user_flashcards,
+    record_event,
+    remove_flashcard_tag,
+    replace_manual_links_for_note,
+    set_note_tags,
+    update_flashcard_progress,
+    update_note,
+    update_srs_after_review,
+    update_user_profile,
 )
 from .email_service import (
+    create_password_reset_token,
     create_verification_token,
-    verify_verification_token,
-    send_verification_email,
-    send_password_change_notification,
+    send_account_deletion_email,
     send_email_change_verification_step1,
     send_email_change_verification_step2,
-    verify_email_change_token,
-    create_password_reset_token,
-    verify_password_reset_token,
     send_password_reset_email,
-    send_account_deletion_email,
+    send_verification_email,
+    verify_email_change_token,
+    verify_password_reset_token,
+    verify_verification_token,
 )
-import re
-import shutil
-from datetime import timezone, datetime, timedelta
-from .database import Flashcard
+from .oauth_service import GoogleOAuthService
+from .rate_limiter import check_ai_rate_limit, check_auth_rate_limit, check_rate_limit
+from .rate_limiter_enhanced import enhanced_rate_limiter
+from .schemas import (
+    ActivityDayCount,
+    ActivityResponse,
+    BacklinkResponse,
+    EmailChangeRequest,
+    # Email verification schemas
+    EmailVerificationRequest,
+    EmailVerificationResponse,
+    EventIngestRequest,
+    EventItem,
+    FlashcardDetailedReview,
+    FlashcardGenerationRequest,
+    FlashcardGenerationResponse,
+    FlashcardResponse,
+    # Enhanced flashcard schemas
+    FlashcardReview,
+    FlashcardReviewResponse,
+    FlashcardReviewResult,
+    FlashcardSetInfo,
+    # New SRS and flashcard schemas
+    FlashcardSRSData,
+    ForgotPasswordRequest,
+    GenerateFlashcardsRequest,
+    GenerateFlashcardsResponse,
+    GoogleOAuthRequest,
+    GoogleOAuthResponse,
+    GraphNode,
+    GraphResponse,
+    KeywordsSuggestResponse,
+    NoteConnection,
+    NoteCreate,
+    NoteListResponse,
+    NoteResponse,
+    NoteUpdate,
+    ProfileSummaryResponse,
+    ResetPasswordRequest,
+    SettingsAdvanced,
+    SettingsAI,
+    SettingsAppearance,
+    SettingsGraph,
+    SettingsStudyFlow,
+    SuccessResponse,
+    SummarizeRequest,
+    SummarizeResponse,
+    Token,
+    UpdateTagsRequest,
+    UserCreate,
+    UserLogin,
+    UsernameCheck,
+    UserProfileUpdate,
+    UserResponse,
+    VerificationResponse,
+    VerifyEmailToken,
+)
 
 # Create FastAPI app
 app = FastAPI(
@@ -239,11 +236,10 @@ _cors_regex = re.compile(r"https://([a-zA-Z0-9-]+\.)?(studentsai\.org|vercel\.ap
 async def ensure_cors_headers(request: Request, call_next):
     response = await call_next(request)
     origin = request.headers.get("origin")
-    if origin:
-        if origin in allowed_origins or _cors_regex.match(origin):
-            response.headers["Access-Control-Allow-Origin"] = origin
-            response.headers["Vary"] = "Origin"
-            response.headers["Access-Control-Allow-Credentials"] = "true"
+    if origin and (origin in allowed_origins or _cors_regex.match(origin)):
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Vary"] = "Origin"
+        response.headers["Access-Control-Allow-Credentials"] = "true"
     return response
 
 
@@ -291,9 +287,18 @@ async def test_email_service(
     except Exception as e:
         return {
             "status": "error",
-            "message": f"Email service failed: {str(e)}",
+            "message": f"Email service failed: {e!s}",
             "details": str(type(e).__name__),
         }
+
+
+_background_tasks: set[asyncio.Task] = set()
+
+
+def _run_in_background(coro) -> None:
+    task = asyncio.create_task(coro)
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
 
 
 # Create database tables on startup
@@ -301,12 +306,8 @@ async def test_email_service(
 async def startup_event():
     create_tables()
     # Initialize enhanced rate limiter in background
-    try:
-        import asyncio
-
-        asyncio.create_task(enhanced_rate_limiter.init_redis())
-    except Exception:
-        pass
+    with contextlib.suppress(Exception):
+        _run_in_background(enhanced_rate_limiter.init_redis())
 
 
 # Global exception handler
@@ -336,8 +337,6 @@ async def register(
         user = register_user(db, user_data)
 
         # Send verification email asynchronously (don't block registration)
-        import asyncio
-
         async def send_email_background():
             try:
                 verification_token = create_verification_token(user.email)
@@ -352,8 +351,7 @@ async def register(
                 if DEBUG:
                     print(f"Failed to send verification email: {e}")
 
-        # Start email sending as background task
-        asyncio.create_task(send_email_background())
+        _run_in_background(send_email_background())
 
         access_token = create_access_token(data={"sub": user.email})
 
@@ -372,11 +370,11 @@ async def register(
         )
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Registration failed",
-        )
+        ) from e
 
 
 @app.post("/auth/login", response_model=Token)
@@ -480,12 +478,13 @@ async def google_oauth_callback(code: str, db: Session = Depends(get_db)):
         return RedirectResponse(url=frontend_url)
 
     except Exception as e:
-        import logging, traceback
+        import logging
+        import traceback
 
-        logging.error(f"Google OAuth error: {str(e)}\n{traceback.format_exc()}")
+        logging.error(f"Google OAuth error: {e!s}\n{traceback.format_exc()}")
 
         # Redirect to frontend with error
-        error_url = f"{settings.frontend_url}/auth/google/callback?error=oauth_failed&message={str(e)}"
+        error_url = f"{settings.frontend_url}/auth/google/callback?error=oauth_failed&message={e!s}"
         from fastapi.responses import RedirectResponse
 
         return RedirectResponse(url=error_url)
@@ -506,8 +505,8 @@ async def google_oauth(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"OAuth authentication failed: {str(e)}",
-        )
+            detail=f"OAuth authentication failed: {e!s}",
+        ) from e
 
 
 # Email verification endpoints
@@ -545,7 +544,7 @@ async def send_verification_email_endpoint(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to send verification email",
-        )
+        ) from e
 
 
 @app.post("/auth/send-email-change-verification")
@@ -619,7 +618,7 @@ async def send_email_change_verification(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to initiate email change verification",
-        )
+        ) from e
 
 
 @app.get("/auth/verify-email-change-step1/{token}", response_model=VerificationResponse)
@@ -690,7 +689,7 @@ async def verify_email_change_step1(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to verify current email",
-        )
+        ) from e
 
 
 @app.get("/auth/verify-email-change-step2/{token}", response_model=VerificationResponse)
@@ -725,7 +724,7 @@ async def verify_email_change_step2(
                 PendingEmailChange.user_id == user_id,
                 PendingEmailChange.current_email == current_email,
                 PendingEmailChange.new_email == new_email,
-                PendingEmailChange.current_email_verified == True,
+                PendingEmailChange.current_email_verified.is_(True),
                 PendingEmailChange.expires_at > datetime.utcnow(),
             )
             .first()
@@ -773,7 +772,7 @@ async def verify_email_change_step2(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update email address",
-        )
+        ) from e
 
 
 @app.get("/auth/verify/{token}", response_model=VerificationResponse)
@@ -812,7 +811,7 @@ async def verify_email_get_endpoint(token: str, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to verify email",
-        )
+        ) from e
 
 
 @app.post("/auth/verify-email", response_model=VerificationResponse)
@@ -853,7 +852,7 @@ async def verify_email_endpoint(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to verify email",
-        )
+        ) from e
 
 
 # Note endpoints
@@ -889,11 +888,11 @@ async def get_notes(
             per_page=limit,
         )
     except Exception as e:
-        print(f"Error in get_notes endpoint: {str(e)}")
+        print(f"Error in get_notes endpoint: {e!s}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Internal server error: {str(e)}",
-        )
+            detail=f"Internal server error: {e!s}",
+        ) from e
 
 
 @app.post("/notes", response_model=NoteResponse)
@@ -907,10 +906,8 @@ async def create_new_note(
     await check_rate_limit(request, str(user_id))
 
     note = create_note(db, note_data.title, note_data.content, user_id)
-    try:
+    with contextlib.suppress(Exception):
         record_event(db, user_id, "NOTE_CREATED", target_id=note.id)
-    except Exception:
-        pass
 
     return NoteResponse(
         id=note.id,
@@ -975,10 +972,8 @@ async def update_existing_note(
     )
 
     # Record the note update event
-    try:
+    with contextlib.suppress(Exception):
         record_event(db, user_id, "NOTE_UPDATED", target_id=updated_note.id)
-    except Exception:
-        pass  # Don't fail the request if event recording fails
 
     # Parse manual wiki-links [[Title]] and update note_links
     try:
@@ -1018,10 +1013,8 @@ async def update_note_tags(
     updated = set_note_tags(db, note, request_data.tags)
 
     # Record the tag update event
-    try:
+    with contextlib.suppress(Exception):
         record_event(db, user_id, "NOTE_UPDATED", target_id=updated.id)
-    except Exception:
-        pass  # Don't fail the request if event recording fails
 
     return NoteResponse(
         id=updated.id,
@@ -1072,7 +1065,7 @@ async def delete_manual_link(
     return SuccessResponse(message="Link deleted")
 
 
-@app.get("/notes/{note_id}/backlinks", response_model=List[BacklinkResponse])
+@app.get("/notes/{note_id}/backlinks", response_model=list[BacklinkResponse])
 async def fetch_backlinks(
     note_id: uuid.UUID,
     request: Request,
@@ -1138,8 +1131,8 @@ async def summarize_text(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate summary: {str(e)}",
-        )
+            detail=f"Failed to generate summary: {e!s}",
+        ) from e
 
 
 @app.post("/ai/flashcards", response_model=GenerateFlashcardsResponse)
@@ -1160,8 +1153,8 @@ async def generate_flashcards(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate flashcards: {str(e)}",
-        )
+            detail=f"Failed to generate flashcards: {e!s}",
+        ) from e
 
 
 @app.post("/notes/{note_id}/summarize", response_model=NoteResponse)
@@ -1183,10 +1176,8 @@ async def summarize_note(
     try:
         summary = await summarize_content(note.content)
         updated_note = update_note(db, note, summary=summary)
-        try:
+        with contextlib.suppress(Exception):
             record_event(db, user_id, "NOTE_REVIEWED", target_id=note.id)
-        except Exception:
-            pass
 
         return NoteResponse(
             id=updated_note.id,
@@ -1200,8 +1191,8 @@ async def summarize_note(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate summary: {str(e)}",
-        )
+            detail=f"Failed to generate summary: {e!s}",
+        ) from e
 
 
 @app.post("/notes/{note_id}/extract-keywords", response_model=NoteResponse)
@@ -1227,10 +1218,8 @@ async def extract_note_keywords(
         # Update note with keywords
         updated_note = set_note_tags(db, note, keywords)
 
-        try:
+        with contextlib.suppress(Exception):
             record_event(db, user_id, "NOTE_REVIEWED", target_id=note.id)
-        except Exception:
-            pass
 
         return NoteResponse(
             id=updated_note.id,
@@ -1244,12 +1233,12 @@ async def extract_note_keywords(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to extract keywords: {str(e)}",
-        )
+            detail=f"Failed to extract keywords: {e!s}",
+        ) from e
 
 
 # Flashcard endpoints
-@app.get("/notes/{note_id}/flashcards", response_model=List[FlashcardResponse])
+@app.get("/notes/{note_id}/flashcards", response_model=list[FlashcardResponse])
 async def get_note_flashcards(
     note_id: uuid.UUID,
     request: Request,
@@ -1266,10 +1255,8 @@ async def get_note_flashcards(
         )
 
     flashcards = get_flashcards_by_note(db, note_id)
-    try:
+    with contextlib.suppress(Exception):
         record_event(db, user_id, "NOTE_REVIEWED", target_id=note_id)
-    except Exception:
-        pass
 
     return [
         FlashcardResponse(
@@ -1291,7 +1278,7 @@ async def get_note_flashcards(
 
 
 @app.post(
-    "/notes/{note_id}/flashcards/generate", response_model=List[FlashcardResponse]
+    "/notes/{note_id}/flashcards/generate", response_model=list[FlashcardResponse]
 )
 async def generate_note_flashcards(
     note_id: uuid.UUID,
@@ -1319,10 +1306,8 @@ async def generate_note_flashcards(
             flashcard = create_flashcard(
                 db, flashcard_data.question, flashcard_data.answer, note_id, user_id
             )
-            try:
+            with contextlib.suppress(Exception):
                 record_event(db, user_id, "FLASHCARD_CREATED", target_id=flashcard.id)
-            except Exception:
-                pass
             saved_flashcards.append(
                 FlashcardResponse(
                     id=flashcard.id,
@@ -1345,15 +1330,15 @@ async def generate_note_flashcards(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate flashcards: {str(e)}",
-        )
+            detail=f"Failed to generate flashcards: {e!s}",
+        ) from e
 
 
 # Enhanced flashcard endpoints
-@app.get("/flashcards/user", response_model=List[FlashcardResponse])
+@app.get("/flashcards/user", response_model=list[FlashcardResponse])
 async def get_user_flashcards_endpoint(
-    tags: Optional[str] = None,
-    search: Optional[str] = None,
+    tags: str | None = None,
+    search: str | None = None,
     request: Request = None,
     user_id: uuid.UUID = Depends(get_current_user_id),
     db: Session = Depends(get_db),
@@ -1383,7 +1368,7 @@ async def get_user_flashcards_endpoint(
     ]
 
 
-@app.get("/flashcards/due", response_model=List[FlashcardResponse])
+@app.get("/flashcards/due", response_model=list[FlashcardResponse])
 async def get_due_flashcards_endpoint(
     limit: int = 20,
     request: Request = None,
@@ -1435,10 +1420,8 @@ async def review_flashcard(
         )
 
         # Record review event
-        try:
+        with contextlib.suppress(Exception):
             record_event(db, user_id, "FLASHCARD_REVIEWED", target_id=flashcard_id)
-        except Exception:
-            pass
 
         # Determine quality rating (manual override or AI evaluation)
         quality_rating = review_data.quality_rating
@@ -1648,7 +1631,7 @@ async def review_flashcard(
 
         # Update flashcard progress
         flashcard.review_count += 1
-        flashcard.last_reviewed = datetime.now(timezone.utc)
+        flashcard.last_reviewed = datetime.now(UTC)
 
         # Map quality to performance score
         performance_map = {0: 0, 1: 20, 2: 40, 3: 60, 4: 80, 5: 100}
@@ -1668,17 +1651,14 @@ async def review_flashcard(
         if performance_score >= 80 and srs_entry.repetitions >= 3:
             if "recently_learned" not in flashcard.tags:
                 flashcard.tags.append("recently_learned")
-        elif performance_score < 50:
-            if "recently_learned" in flashcard.tags:
-                flashcard.tags.remove("recently_learned")
+        elif performance_score < 50 and "recently_learned" in flashcard.tags:
+            flashcard.tags.remove("recently_learned")
 
         db.commit()
 
         # Record review event
-        try:
+        with contextlib.suppress(Exception):
             record_event(db, user_id, "FLASHCARD_REVIEWED", target_id=flashcard_id)
-        except Exception:
-            pass
 
         # Generate feedback based on LLM evaluation
         if (
@@ -1718,12 +1698,12 @@ async def review_flashcard(
         )
 
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to review flashcard: {str(e)}",
-        )
+            detail=f"Failed to review flashcard: {e!s}",
+        ) from e
 
 
 @app.post("/flashcards/{flashcard_id}/tags/{tag}")
@@ -1741,7 +1721,7 @@ async def add_flashcard_tag_endpoint(
         flashcard = add_flashcard_tag(db, flashcard_id, tag)
 
         # Record the flashcard tag event
-        try:
+        with contextlib.suppress(Exception):
             record_event(
                 db,
                 user_id,
@@ -1749,12 +1729,10 @@ async def add_flashcard_tag_endpoint(
                 target_id=flashcard_id,
                 metadata={"tag": tag, "action": "added"},
             )
-        except Exception:
-            pass  # Don't fail the request if event recording fails
 
         return {"message": f"Tag '{tag}' added successfully", "tags": flashcard.tags}
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
 
 @app.delete("/flashcards/{flashcard_id}/tags/{tag}")
@@ -1772,7 +1750,7 @@ async def remove_flashcard_tag_endpoint(
         flashcard = remove_flashcard_tag(db, flashcard_id, tag)
 
         # Record the flashcard tag removal event
-        try:
+        with contextlib.suppress(Exception):
             record_event(
                 db,
                 user_id,
@@ -1780,17 +1758,15 @@ async def remove_flashcard_tag_endpoint(
                 target_id=flashcard_id,
                 metadata={"tag": tag, "action": "removed"},
             )
-        except Exception:
-            pass  # Don't fail the request if event recording fails
 
         return {"message": f"Tag '{tag}' removed successfully", "tags": flashcard.tags}
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
 
 @app.post(
     "/notes/{note_id}/flashcards/contextual/generate",
-    response_model=List[FlashcardResponse],
+    response_model=list[FlashcardResponse],
 )
 async def generate_contextual_flashcards(
     note_id: uuid.UUID,
@@ -1851,10 +1827,8 @@ async def generate_contextual_flashcards(
                 user_id,
                 context_notes,
             )
-            try:
+            with contextlib.suppress(Exception):
                 record_event(db, user_id, "FLASHCARD_CREATED", target_id=flashcard.id)
-            except Exception:
-                pass
             saved_flashcards.append(
                 FlashcardResponse(
                     id=flashcard.id,
@@ -1877,8 +1851,8 @@ async def generate_contextual_flashcards(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate contextual flashcards: {str(e)}",
-        )
+            detail=f"Failed to generate contextual flashcards: {e!s}",
+        ) from e
 
 
 # Enhanced flashcard system endpoints
@@ -1925,12 +1899,10 @@ async def generate_flashcards_enhanced(
                 # Create SRS entry
                 get_or_create_srs_entry(db, flashcard.id, user_id)
 
-                try:
+                with contextlib.suppress(Exception):
                     record_event(
                         db, user_id, "FLASHCARD_CREATED", target_id=flashcard.id
                     )
-                except Exception:
-                    pass
 
                 saved_flashcards.append(
                     FlashcardResponse(
@@ -2013,12 +1985,10 @@ async def generate_flashcards_enhanced(
                 # Create SRS entry
                 get_or_create_srs_entry(db, flashcard.id, user_id)
 
-                try:
+                with contextlib.suppress(Exception):
                     record_event(
                         db, user_id, "FLASHCARD_CREATED", target_id=flashcard.id
                     )
-                except Exception:
-                    pass
 
                 saved_flashcards.append(
                     FlashcardResponse(
@@ -2052,8 +2022,8 @@ async def generate_flashcards_enhanced(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate flashcards: {str(e)}",
-        )
+            detail=f"Failed to generate flashcards: {e!s}",
+        ) from e
 
 
 @app.post(
@@ -2136,7 +2106,7 @@ async def review_flashcard_enhanced(
 
         # Update flashcard progress
         flashcard.review_count += 1
-        flashcard.last_reviewed = datetime.now(timezone.utc)
+        flashcard.last_reviewed = datetime.now(UTC)
 
         # Map quality to performance score
         performance_map = {0: 0, 1: 20, 2: 40, 3: 60, 4: 80, 5: 100}
@@ -2156,17 +2126,14 @@ async def review_flashcard_enhanced(
         if performance_score >= 80 and srs_entry.repetitions >= 3:
             if "recently_learned" not in flashcard.tags:
                 flashcard.tags.append("recently_learned")
-        elif performance_score < 50:
-            if "recently_learned" in flashcard.tags:
-                flashcard.tags.remove("recently_learned")
+        elif performance_score < 50 and "recently_learned" in flashcard.tags:
+            flashcard.tags.remove("recently_learned")
 
         db.commit()
 
         # Record review event
-        try:
+        with contextlib.suppress(Exception):
             record_event(db, user_id, "FLASHCARD_REVIEWED", target_id=flashcard_id)
-        except Exception:
-            pass
 
         # Generate feedback based on LLM evaluation
         if (
@@ -2221,11 +2188,11 @@ async def review_flashcard_enhanced(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to review flashcard: {str(e)}",
-        )
+            detail=f"Failed to review flashcard: {e!s}",
+        ) from e
 
 
-@app.get("/flashcards/sets", response_model=List[FlashcardSetInfo])
+@app.get("/flashcards/sets", response_model=list[FlashcardSetInfo])
 async def get_flashcard_sets(
     request: Request = None,
     user_id: uuid.UUID = Depends(get_current_user_id),
@@ -2261,7 +2228,7 @@ async def get_flashcard_sets(
     return set_infos
 
 
-@app.get("/flashcards/due/srs", response_model=List[FlashcardResponse])
+@app.get("/flashcards/due/srs", response_model=list[FlashcardResponse])
 async def get_due_flashcards_srs_endpoint(
     limit: int = 20,
     request: Request = None,
@@ -2322,8 +2289,8 @@ async def archive_mastered_flashcards_endpoint(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to archive mastered flashcards: {str(e)}",
-        )
+            detail=f"Failed to archive mastered flashcards: {e!s}",
+        ) from e
 
 
 # Graph endpoints
@@ -2448,7 +2415,7 @@ async def profile_summary(
     current_streak, best_streak = compute_streaks(db, user_id)
 
     # activity windows
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     d7 = now - timedelta(days=7)
     d30 = now - timedelta(days=30)
     a7_rows = get_activity_counts(db, user_id, d7, now, kind="all")
@@ -2477,8 +2444,8 @@ async def profile_activity(
 ):
     await check_rate_limit(request, str(user_id))
     # Parse dates as UTC-midnight boundaries
-    start = datetime.fromisoformat(from_date).replace(tzinfo=timezone.utc)
-    end_inclusive = datetime.fromisoformat(to_date).replace(tzinfo=timezone.utc)
+    start = datetime.fromisoformat(from_date).replace(tzinfo=UTC)
+    end_inclusive = datetime.fromisoformat(to_date).replace(tzinfo=UTC)
     # Set end to the end of the day (23:59:59.999999) to include all activity on that date
     end = end_inclusive.replace(hour=23, minute=59, second=59, microsecond=999999)
 
@@ -2522,7 +2489,7 @@ async def profile_activity(
     )
 
 
-@app.get("/api/profile/recent", response_model=List[EventItem])
+@app.get("/api/profile/recent", response_model=list[EventItem])
 async def profile_recent(
     request: Request,
     user_id: uuid.UUID = Depends(get_current_user_id),
@@ -2605,7 +2572,9 @@ async def ingest_event(
         )
         return SuccessResponse(message="Event recorded")
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to record event: {e}")
+        raise HTTPException(
+            status_code=400, detail=f"Failed to record event: {e}"
+        ) from e
 
 
 @app.post("/api/profile/aggregate", response_model=SuccessResponse)
@@ -2625,7 +2594,7 @@ async def profile_aggregate(
         ("flashcards", "AND event_type IN ('FLASHCARD_CREATED','FLASHCARD_REVIEWED')"),
     ):
         stmt = sql_text(
-            """
+            f"""
             INSERT INTO activity_daily (user_id, day, kind, count)
             SELECT :uid AS user_id,
                    DATE(occurred_at AT TIME ZONE 'UTC') AS day,
@@ -2637,7 +2606,7 @@ async def profile_aggregate(
             GROUP BY DATE(occurred_at AT TIME ZONE 'UTC')
             ON CONFLICT (user_id, day, kind)
             DO UPDATE SET count = EXCLUDED.count;
-            """.format(filter_clause=filter_clause)
+            """
         )
         db.execute(stmt, {"uid": str(user_id), "kind": kind})
     db.commit()
@@ -2676,7 +2645,7 @@ async def upload_image(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Upload failed: {e!s}") from e
 
 
 # Settings endpoints
@@ -2828,7 +2797,7 @@ async def request_account_deletion(
     except Exception as e:
         # Log the error for debugging but don't leak details to user
         if DEBUG:
-            print(f"Failed to send account deletion email to {user.email}: {str(e)}")
+            print(f"Failed to send account deletion email to {user.email}: {e!s}")
 
         # Still return success to prevent email enumeration, but log the issue
         return SuccessResponse(
@@ -2849,9 +2818,9 @@ async def confirm_account_deletion(
             token, settings.secret_key, algorithms=[settings.algorithm]
         )
     except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=400, detail="Token expired")
+        raise HTTPException(status_code=400, detail="Token expired") from None
     except jwt.InvalidTokenError:
-        raise HTTPException(status_code=400, detail="Invalid token")
+        raise HTTPException(status_code=400, detail="Invalid token") from None
 
     if payload.get("type") != "account_delete":
         raise HTTPException(status_code=400, detail="Invalid token type")
@@ -2951,7 +2920,7 @@ async def check_username_availability(
     try:
         UserProfileUpdate(username=username)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
     # Check if username is available
     existing_user = get_user_by_username(db, username)

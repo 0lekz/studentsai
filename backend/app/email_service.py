@@ -2,16 +2,15 @@
 Email service for sending verification emails using SendGrid Web API
 """
 
-from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail, Email, To, Content, HtmlContent
-from pydantic import EmailStr
-import jwt
-from datetime import datetime, timedelta
-from typing import Optional
-from .config import settings
-from .database import get_db, Session
-from .auth import get_user_by_email, get_user_by_id
 import uuid
+from datetime import datetime, timedelta
+
+import jwt
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
+
+from .config import settings
+from .database import Session, get_user_by_id
 
 
 def get_sendgrid_client():
@@ -40,7 +39,7 @@ def send_email_via_sendgrid(to_email: str, subject: str, html_content: str):
             return False
 
     except Exception as e:
-        print(f"SendGrid email sending failed: {str(e)}")
+        print(f"SendGrid email sending failed: {e!s}")
         return False
 
 
@@ -68,7 +67,7 @@ def create_password_reset_token(email: str) -> str:
     return token
 
 
-def verify_password_reset_token(token: str) -> Optional[str]:
+def verify_password_reset_token(token: str) -> str | None:
     """Verify and decode the password reset token, return email if valid"""
     try:
         payload = jwt.decode(
@@ -83,7 +82,7 @@ def verify_password_reset_token(token: str) -> Optional[str]:
         return None
 
 
-def verify_verification_token(token: str) -> Optional[str]:
+def verify_verification_token(token: str) -> str | None:
     """Verify and decode the verification token, return email if valid"""
     try:
         payload = jwt.decode(
@@ -103,7 +102,6 @@ def verify_verification_token(token: str) -> Optional[str]:
 
 async def send_verification_email(email: str, username: str, verification_url: str):
     """Send verification email to user"""
-    import asyncio
 
     html_content = f"""
     <!DOCTYPE html>
@@ -229,8 +227,8 @@ async def send_verification_email(email: str, username: str, verification_url: s
             raise Exception("SendGrid email sending failed")
 
     except Exception as e:
-        print(f"Verification email send failed for {email}: {str(e)}")
-        raise Exception(f"Email sending failed: {str(e)}")
+        print(f"Verification email send failed for {email}: {e!s}")
+        raise Exception(f"Email sending failed: {e!s}") from e
 
 
 async def send_password_change_notification(email: str, username: str):
@@ -316,11 +314,13 @@ async def send_password_change_notification(email: str, username: str):
     </html>
     """
 
-    if not send_email_via_sendgrid(
+    success = send_email_via_sendgrid(
         to_email=email,
         subject="Password Changed - StudentsAI",
         html_content=html_content,
-    ):
+    )
+
+    if not success:
         raise Exception("SendGrid email sending failed")
 
 
@@ -337,17 +337,18 @@ async def send_password_reset_email(email: str, reset_url: str):
     </html>
     """
 
-    if not send_email_via_sendgrid(
+    success = send_email_via_sendgrid(
         to_email=email,
         subject="Reset Your Password - StudentsAI",
         html_content=html_content,
-    ):
+    )
+
+    if not success:
         raise Exception("SendGrid email sending failed")
 
 
 async def send_account_deletion_email(email: str, confirm_url: str):
     """Send account deletion confirmation email"""
-    import asyncio
 
     html_content = f"""
     <!DOCTYPE html>
@@ -450,7 +451,7 @@ async def send_account_deletion_email(email: str, confirm_url: str):
             raise Exception("SendGrid email sending failed")
 
     except Exception as e:
-        print(f"Account deletion email send failed for {email}: {str(e)}")
+        print(f"Account deletion email send failed for {email}: {e!s}")
         raise
 
 
@@ -500,11 +501,14 @@ async def send_email_change_verification_step1(
                 </body>
             </html>
             """
-        if not send_email_via_sendgrid(
+
+        success = send_email_via_sendgrid(
             to_email=current_email,
             subject="Confirm Email Change Request",
             html_content=html_content,
-        ):
+        )
+
+        if not success:
             raise Exception("SendGrid email sending failed")
         return True
 
@@ -548,11 +552,14 @@ async def send_email_change_verification_step2(
                 </body>
             </html>
             """
-        if not send_email_via_sendgrid(
+
+        success = send_email_via_sendgrid(
             to_email=new_email,
             subject="Verify New Email Address",
             html_content=html_content,
-        ):
+        )
+
+        if not success:
             raise Exception("SendGrid email sending failed")
         return True
 
@@ -562,7 +569,7 @@ async def send_email_change_verification_step2(
         return False
 
 
-def verify_email_change_token(token: str) -> Optional[dict]:
+def verify_email_change_token(token: str) -> dict | None:
     """Verify email change token and return payload"""
     try:
         payload = jwt.decode(

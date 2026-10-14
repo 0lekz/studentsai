@@ -3,8 +3,9 @@ Pydantic schemas for API request/response validation
 """
 
 import uuid
-from datetime import datetime, date
-from typing import List, Optional, Dict, Any
+from datetime import date, datetime
+from typing import Any
+
 from pydantic import BaseModel, EmailStr, validator
 
 
@@ -22,8 +23,8 @@ class UserBase(BaseSchema):
 
 
 class UserCreate(UserBase):
-    password: Optional[str] = None  # Made optional for OAuth users
-    username: Optional[str] = None
+    password: str | None = None  # Made optional for OAuth users
+    username: str | None = None
 
     @validator("password")
     def validate_password(cls, v):
@@ -92,10 +93,10 @@ class GoogleOAuthResponse(BaseSchema):
 
 
 class UserProfileUpdate(BaseSchema):
-    username: Optional[str] = None
-    email: Optional[EmailStr] = None
-    current_password: Optional[str] = None
-    new_password: Optional[str] = None
+    username: str | None = None
+    email: EmailStr | None = None
+    current_password: str | None = None
+    new_password: str | None = None
 
     @validator("username")
     def validate_username(cls, v):
@@ -113,9 +114,8 @@ class UserProfileUpdate(BaseSchema):
 
     @validator("new_password")
     def validate_new_password(cls, v):
-        if v is not None:
-            if len(v) < 8:
-                raise ValueError("Password must be at least 8 characters long")
+        if v is not None and len(v) < 8:
+            raise ValueError("Password must be at least 8 characters long")
         return v
 
 
@@ -187,7 +187,7 @@ class Token(BaseSchema):
 
 
 class TokenData(BaseSchema):
-    email: Optional[str] = None
+    email: str | None = None
 
 
 # Note schemas
@@ -215,9 +215,9 @@ class NoteCreate(NoteBase):
 
 
 class NoteUpdate(BaseSchema):
-    title: Optional[str] = None
-    content: Optional[str] = None
-    summary: Optional[str] = None
+    title: str | None = None
+    content: str | None = None
+    summary: str | None = None
 
     @validator("title")
     def validate_title(cls, v):
@@ -240,7 +240,7 @@ class NoteUpdate(BaseSchema):
 
 class Note(NoteBase):
     id: uuid.UUID
-    summary: Optional[str] = None
+    summary: str | None = None
     created_at: datetime
     updated_at: datetime
     user_id: uuid.UUID
@@ -250,14 +250,14 @@ class NoteResponse(BaseSchema):
     id: uuid.UUID
     title: str
     content: str
-    summary: Optional[str] = None
+    summary: str | None = None
     created_at: datetime
     updated_at: datetime
-    tags: Optional[List[str]] = []
+    tags: list[str] | None = []
 
 
 class NoteListResponse(BaseSchema):
-    notes: List[NoteResponse]
+    notes: list[NoteResponse]
     total: int
     page: int
     per_page: int
@@ -268,7 +268,7 @@ class FlashcardBase(BaseSchema):
     question: str
     answer: str
     flashcard_type: str = "single_note"  # "single_note" or "contextual"
-    context_notes: Optional[List[uuid.UUID]] = None
+    context_notes: list[uuid.UUID] | None = None
 
     @validator("question", "answer")
     def validate_text(cls, v):
@@ -290,16 +290,16 @@ class FlashcardCreate(FlashcardBase):
 class Flashcard(FlashcardBase):
     id: uuid.UUID
     difficulty: int
-    last_reviewed: Optional[datetime] = None
-    next_review: Optional[datetime] = None
+    last_reviewed: datetime | None = None
+    next_review: datetime | None = None
     created_at: datetime
     note_id: uuid.UUID
     user_id: uuid.UUID
-    tags: Optional[List[str]] = []
+    tags: list[str] | None = []
     review_count: int = 0
     mastery_level: int = 0
-    last_performance: Optional[int] = None
-    user_answer_history: Optional[Dict[str, Any]] = None
+    last_performance: int | None = None
+    user_answer_history: dict[str, Any] | None = None
 
 
 class FlashcardResponse(BaseSchema):
@@ -307,20 +307,20 @@ class FlashcardResponse(BaseSchema):
     question: str
     answer: str
     difficulty: int
-    last_reviewed: Optional[datetime] = None
+    last_reviewed: datetime | None = None
     created_at: datetime
     flashcard_type: str
-    context_notes: Optional[List[uuid.UUID]] = None
-    tags: Optional[List[str]] = []
+    context_notes: list[uuid.UUID] | None = None
+    tags: list[str] | None = []
     review_count: int
     mastery_level: int
-    last_performance: Optional[int] = None
+    last_performance: int | None = None
 
 
 class FlashcardReview(BaseSchema):
     flashcard_id: uuid.UUID
     user_answer: str
-    performance_score: Optional[int] = None  # 0-100 score
+    performance_score: int | None = None  # 0-100 score
 
 
 class FlashcardReviewResponse(BaseSchema):
@@ -328,8 +328,8 @@ class FlashcardReviewResponse(BaseSchema):
     performance_score: int
     feedback: str
     mastery_level: int
-    next_review_date: Optional[datetime] = None
-    tags_updated: List[str] = []
+    next_review_date: datetime | None = None
+    tags_updated: list[str] = []
 
 
 # New schemas for enhanced flashcard system
@@ -346,7 +346,7 @@ class FlashcardSetInfo(BaseSchema):
     id: uuid.UUID
     mode: str  # 'single' or 'context'
     seed_note_id: uuid.UUID
-    neighbor_note_ids: Optional[List[uuid.UUID]] = []
+    neighbor_note_ids: list[uuid.UUID] | None = []
     created_at: datetime
     flashcard_count: int
 
@@ -354,7 +354,7 @@ class FlashcardSetInfo(BaseSchema):
 class FlashcardDetailedReview(BaseSchema):
     flashcard_id: uuid.UUID
     typed_answer: str
-    quality_rating: Optional[int] = None  # 0-5 rating for manual override
+    quality_rating: int | None = None  # 0-5 rating for manual override
 
 
 class FlashcardReviewResult(BaseSchema):
@@ -362,26 +362,26 @@ class FlashcardReviewResult(BaseSchema):
     ai_score: int  # 0-100 score from LLM
     verdict: str  # 'correct', 'partial', 'incorrect'
     feedback: str
-    missing_points: List[str]
+    missing_points: list[str]
     confidence: int  # 0-100 confidence from LLM
     next_review_date: date
     srs_data: FlashcardSRSData
-    tags_updated: List[str] = []
+    tags_updated: list[str] = []
 
 
 class FlashcardGenerationRequest(BaseSchema):
     mode: str  # 'single' or 'context'
     note_id: uuid.UUID
-    count: Optional[int] = 5
-    neighbors: Optional[int] = 5
-    token_cap: Optional[int] = 2500
+    count: int | None = 5
+    neighbors: int | None = 5
+    token_cap: int | None = 2500
 
 
 class FlashcardGenerationResponse(BaseSchema):
     flashcard_set_id: uuid.UUID
-    cards: List[FlashcardResponse]
-    context_notes: Optional[List[uuid.UUID]] = []
-    total_tokens_used: Optional[int] = None
+    cards: list[FlashcardResponse]
+    context_notes: list[uuid.UUID] | None = []
+    total_tokens_used: int | None = None
 
 
 # AI service schemas
@@ -405,7 +405,7 @@ class SummarizeResponse(BaseSchema):
 
 class GenerateFlashcardsRequest(BaseSchema):
     content: str
-    count: Optional[int] = 5
+    count: int | None = 5
 
     @validator("content")
     def validate_content(cls, v):
@@ -426,7 +426,7 @@ class GeneratedFlashcard(BaseSchema):
 
 
 class GenerateFlashcardsResponse(BaseSchema):
-    flashcards: List[GeneratedFlashcard]
+    flashcards: list[GeneratedFlashcard]
     count: int
 
 
@@ -447,8 +447,8 @@ class GraphNode(BaseSchema):
 
 
 class GraphResponse(BaseSchema):
-    nodes: List[GraphNode]
-    connections: List[NoteConnection]
+    nodes: list[GraphNode]
+    connections: list[NoteConnection]
     total_nodes: int
 
 
@@ -456,30 +456,30 @@ class GraphResponse(BaseSchema):
 class BacklinkResponse(BaseSchema):
     note_id: uuid.UUID
     title: str
-    excerpt: Optional[str] = None
+    excerpt: str | None = None
     created_at: datetime
 
 
 class KeywordsSuggestResponse(BaseSchema):
     note_id: uuid.UUID
-    keywords: List[str]
+    keywords: list[str]
 
 
 class UpdateTagsRequest(BaseSchema):
-    tags: List[str]
+    tags: list[str]
 
 
 # Error schemas
 class ErrorResponse(BaseSchema):
     error: str
-    detail: Optional[str] = None
-    code: Optional[str] = None
+    detail: str | None = None
+    code: str | None = None
 
 
 # Success schemas
 class SuccessResponse(BaseSchema):
     message: str
-    data: Optional[dict] = None
+    data: dict | None = None
 
 
 # Events / Profile schemas
@@ -497,8 +497,8 @@ class EventItem(BaseSchema):
     id: uuid.UUID
     event_type: str
     occurred_at: datetime
-    target_id: Optional[uuid.UUID] = None
-    metadata: Optional[dict] = None
+    target_id: uuid.UUID | None = None
+    metadata: dict | None = None
 
 
 class ProfileSummaryResponse(BaseSchema):
@@ -515,21 +515,21 @@ class ProfileSummaryResponse(BaseSchema):
 class ActivityDayCount(BaseSchema):
     date: str  # YYYY-MM-DD (UTC)
     count: int
-    top_type: Optional[str] = None
+    top_type: str | None = None
 
 
 class ActivityResponse(BaseSchema):
     from_date: str
     to_date: str
     kind: str
-    days: List[ActivityDayCount]
+    days: list[ActivityDayCount]
 
 
 class EventIngestRequest(BaseSchema):
     event_type: str
-    target_id: Optional[uuid.UUID] = None
-    occurred_at: Optional[datetime] = None
-    metadata: Optional[dict] = None
+    target_id: uuid.UUID | None = None
+    occurred_at: datetime | None = None
+    metadata: dict | None = None
 
 
 # NEW: Email verification schemas
@@ -549,7 +549,7 @@ class VerifyEmailToken(BaseModel):
 class VerificationResponse(BaseModel):
     message: str
     verified: bool
-    access_token: Optional[str] = None
+    access_token: str | None = None
 
 
 class EmailChangeRequest(BaseModel):
