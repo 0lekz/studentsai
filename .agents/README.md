@@ -13,6 +13,8 @@ Do not define an agent here with any other model.
 | `backend-test-engineer.md` | pytest foundation and characterization tests | `backend/tests/**`, `backend/requirements-dev.txt`, the `[tool.pytest.ini_options]` table in `backend/pyproject.toml` |
 | `backend-hygiene-engineer.md` | lint, security fixes, CI workflow, Dependabot | `backend/app/**`, the `[tool.ruff*]` tables in `backend/pyproject.toml`, `.github/workflows/**`, `.github/dependabot.yml` |
 | `frontend-build-engineer.md` | type-check, lint and build gates for the Next.js app | `frontend/**` |
+| `ml-retrieval-engineer.md` | embedding-based note similarity on pgvector, flag-gated, with a committed benchmark against TF-IDF | `backend/app/services/embedding_service.py`, `backend/app/models/note_embedding.py`, `backend/scripts/backfill_embeddings.py`, `backend/tests/eval/**`, its tests and migration |
+| `ingestion-engineer.md` | PDF and slide-deck ingestion with structured extraction and chunking | `backend/app/models/document.py`, `backend/app/services/ingestion/**`, `backend/app/api/documents.py`, its tests and migration |
 
 ## Shared rules
 
@@ -30,6 +32,15 @@ Every agent follows these rules in addition to its own definition.
   OpenAI and SendGrid are always stubbed in tests.
 - Follow the engineering rules in the user's global instructions: self-documenting code, minimal comments, no em dashes, one sentence per line in long Markdown.
 - Finish with a report that lists: files created or changed, the exact commands used to verify the work and their results, anything left undone and why, and any bug discovered but deliberately not fixed.
+
+## New code layout
+
+From phase 2 on, new backend code lands in the target layout from `docs/ROADMAP_V2.md` and existing code is not moved to make room for it.
+
+- ORM models in `backend/app/models/<domain>.py`, importing `Base` from `app.database`, re-exported from `backend/app/models/__init__.py`.
+- Business logic in `backend/app/services/`.
+- Route handlers in `backend/app/api/<domain>.py` as an `APIRouter`, registered with one `include_router` line in `main.py`.
+- Each feature ships its own Alembic revision; the orchestrator chains revisions when parallel agents both branch from the same head.
 
 ## Spawning
 
