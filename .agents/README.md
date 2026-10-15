@@ -15,6 +15,12 @@ Do not define an agent here with any other model.
 | `frontend-build-engineer.md` | type-check, lint and build gates for the Next.js app | `frontend/**` |
 | `ml-retrieval-engineer.md` | embedding-based note similarity on pgvector, flag-gated, with a committed benchmark against TF-IDF | `backend/app/services/embedding_service.py`, `backend/app/models/note_embedding.py`, `backend/scripts/backfill_embeddings.py`, `backend/tests/eval/**`, its tests and migration |
 | `ingestion-engineer.md` | PDF and slide-deck ingestion with structured extraction and chunking | `backend/app/models/document.py`, `backend/app/services/ingestion/**`, `backend/app/api/documents.py`, its tests and migration |
+| `backend-rescope-engineer.md` | cuts the features PRODUCT_V2 removes, adds Course, resets the schema to one baseline, extracts routers | `backend/app/**` except the LLM layer, `backend/alembic/**`, `backend/tests/**` except LLM tests |
+| `llm-platform-engineer.md` | one LLM provider interface with OpenAI, Anthropic and fake clients, cost logging, caching, eval harness skeleton | `backend/app/services/llm/**`, `backend/app/models/llm_call.py`, `backend/tests/test_llm*.py`, `backend/tests/eval/llm/**` |
+| `frontend-foundation-engineer.md` | design tokens, course-centric app shell, decomposition, cut-feature removal, generated typed client, Playwright screenshots | `frontend/**` |
+| `concept-engineer.md` | concept extraction per course with cached structured calls, local dedup, mastery, concept map | `backend/app/models/concept.py`, `backend/app/services/concepts/**`, `backend/app/api/concepts.py`, its tests and eval |
+| `tutor-engineer.md` | chunk retrieval, question generation with provenance, rubric grading into SM-2, grounded ask, practice sessions, today feed | `backend/app/services/tutor/**`, `backend/app/models/chunk_embedding.py`, `backend/app/api/{practice,ask,today}.py`, its tests and eval |
+| `frontend-product-engineer.md` | Today, Practice, Ask and Map screens on the shell, phone-first, citations first-class, Playwright-verified | `frontend/**` |
 
 ## Shared rules
 
