@@ -69,6 +69,15 @@ class Settings(BaseSettings):
     embedding_cache_dir: str = "~/.cache/fastembed"
     embedding_similarity_threshold: float = 0.7
 
+    # LLM provider layer; model and base URL default to the provider's own
+    llm_provider: Literal["openai", "anthropic", "fake"] = "fake"
+    llm_model: str | None = None
+    llm_base_url: str | None = None
+    anthropic_api_key: str | None = None
+    llm_timeout_seconds: float = 120.0
+    llm_max_retries: int = 2
+    llm_reasoning_effort: str | None = None
+
     # Rate Limiting
     rate_limit_requests: int = 100
     rate_limit_window: int = 3600  # seconds

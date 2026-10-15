@@ -14,6 +14,7 @@ os.environ["OPENAI_API_KEY"] = "test"
 os.environ["SENDGRID_API_KEY"] = "test"
 os.environ["EMBEDDING_BACKEND"] = "fake"
 os.environ["SIMILARITY_BACKEND"] = "tfidf"
+os.environ["LLM_PROVIDER"] = "fake"
 
 import ipaddress
 import json
