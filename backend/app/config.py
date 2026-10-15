@@ -5,7 +5,7 @@ Configuration management for StudentsAI MVP
 from pathlib import Path
 from typing import Literal
 
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -82,9 +82,6 @@ class Settings(BaseSettings):
     rate_limit_requests: int = 100
     rate_limit_window: int = 3600  # seconds
 
-    # Redis (optional)
-    redis_url: str = "redis://localhost:6379/0"
-
     # Documents, stored outside the public /uploads static mount
     document_storage_dir: Path = (
         Path(__file__).resolve().parent.parent / "storage" / "documents"
@@ -95,9 +92,7 @@ class Settings(BaseSettings):
     environment: str = "development"
     debug: bool = True  # Set to False in production via environment variable
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = False
+    model_config = SettingsConfigDict(env_file=".env", case_sensitive=False)
 
 
 # Global settings instance
@@ -128,9 +123,6 @@ PORT = settings.port
 # Rate limiting configuration
 RATE_LIMIT_REQUESTS = settings.rate_limit_requests
 RATE_LIMIT_WINDOW = settings.rate_limit_window
-
-# Redis configuration
-REDIS_URL = settings.redis_url
 
 # CORS configuration
 ALLOWED_ORIGINS = settings.backend_cors_origins

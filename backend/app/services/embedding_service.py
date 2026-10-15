@@ -16,7 +16,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session, aliased
 
 from app.config import settings
-from app.database import Note
+from app.models.note import Note
 from app.models.note_embedding import EMBEDDING_DIMENSIONS, NoteEmbedding
 
 if TYPE_CHECKING:

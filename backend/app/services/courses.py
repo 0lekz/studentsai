@@ -6,9 +6,10 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.database import Flashcard, Note
 from app.models.course import Course
 from app.models.document import Document
+from app.models.flashcard import Flashcard
+from app.models.note import Note
 from app.services.ingestion import DocumentStorage
 
 

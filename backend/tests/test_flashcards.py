@@ -1,6 +1,13 @@
+import uuid
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from sqlalchemy.exc import IntegrityError
+
+from app.models import Document, DocumentChunk, Flashcard
+from app.repositories.flashcards import create_flashcard
+from app.repositories.notes import create_note as insert_note
+from app.services.courses import create_course
 
 MISSING_ID = "00000000-0000-0000-0000-000000000000"
 
@@ -68,7 +75,18 @@ def test_flashcards_carry_no_mastery_or_contextual_fields(flashcard):
         "tags",
         "review_count",
         "course_id",
+        "kind",
+        "choices",
+        "source",
     }
+
+
+def test_new_flashcards_are_user_recall_cards_without_choices(flashcard):
+    assert (flashcard["kind"], flashcard["choices"], flashcard["source"]) == (
+        "recall",
+        None,
+        "user",
+    )
 
 
 def test_generate_for_note_defaults_to_five_cards(auth_client, note):
@@ -336,3 +354,81 @@ def test_another_users_flashcard_cannot_be_tagged_or_reviewed(
     [card] = user_cards(auth_client)
     assert card["tags"] == []
     assert card["review_count"] == 0
+
+
+def test_archiving_mastered_cards_keeps_their_existing_tags(auth_client, flashcard):
+    auth_client.post(f"/flashcards/{flashcard['id']}/tags/visit_later")
+    for _ in range(5):
+        review(auth_client, flashcard["id"], 5)
+
+    response = auth_client.post("/flashcards/archive/mastered")
+
+    assert response.status_code == 200
+    [archived] = response.json()["flashcards"]
+    assert archived["tags"] == ["visit_later", "recently_learned"]
+    assert user_cards(auth_client)[0]["tags"] == ["visit_later", "recently_learned"]
+
+
+def test_archiving_ignores_cards_that_are_not_mastered_yet(auth_client, flashcard):
+    for _ in range(4):
+        review(auth_client, flashcard["id"], 5)
+
+    response = auth_client.post("/flashcards/archive/mastered")
+
+    assert response.json() == {
+        "message": "Found 0 mastered flashcards",
+        "flashcards": [],
+    }
+    assert user_cards(auth_client)[0]["tags"] == []
+
+
+@pytest.fixture
+def stored_card(db_session, user) -> Flashcard:
+    note = insert_note(db_session, "Cells", "Body", uuid.UUID(user.id))
+    return create_flashcard(db_session, "Q?", "A", note.id, note.user_id)
+
+
+def test_deleting_a_cards_source_chunk_keeps_the_card(db_session, stored_card):
+    course = create_course(
+        db_session, stored_card.user_id, name="Biology", term=None, exam_date=None
+    )
+    chunk = DocumentChunk(
+        index=0,
+        heading_path=["Cells"],
+        page_start=1,
+        page_end=1,
+        text="Cells",
+        token_estimate=1,
+    )
+    document = Document(
+        user_id=stored_card.user_id,
+        course_id=course.id,
+        filename="week1.pdf",
+        content_type="application/pdf",
+        size_bytes=1,
+        storage_path="week1.pdf",
+        chunks=[chunk],
+    )
+    db_session.add(document)
+    db_session.flush()
+    stored_card.chunk_id = chunk.id
+    db_session.commit()
+
+    db_session.delete(document)
+    db_session.commit()
+
+    db_session.expire_all()
+    assert db_session.get(Flashcard, stored_card.id).chunk_id is None
+
+
+@pytest.mark.parametrize(
+    ("column", "value"), [("kind", "essay"), ("source", "imported")]
+)
+def test_flashcard_kind_and_source_are_constrained(
+    db_session, stored_card, column, value
+):
+    setattr(stored_card, column, value)
+
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+    db_session.rollback()

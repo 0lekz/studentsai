@@ -3,15 +3,14 @@ from datetime import UTC, date, datetime, timedelta, timezone
 
 import pytest
 
-from app import database
-from app.database import (
-    Flashcard,
-    FlashcardSRS,
+from app.models import Flashcard, FlashcardSRS
+from app.repositories import flashcards as flashcard_repository
+from app.repositories.flashcards import create_flashcard, get_due_flashcards_srs
+from app.repositories.notes import create_note
+from app.repositories.users import create_user
+from app.services import scheduling
+from app.services.scheduling import (
     apply_flashcard_review,
-    create_flashcard,
-    create_note,
-    create_user,
-    get_due_flashcards_srs,
     get_or_create_srs_entry,
     update_srs_after_review,
 )
@@ -30,7 +29,8 @@ class FrozenDatetime(datetime):
 @pytest.fixture
 def clock(monkeypatch) -> type[FrozenDatetime]:
     monkeypatch.setattr(FrozenDatetime, "frozen_at", DEFAULT_NOW)
-    monkeypatch.setattr(database, "datetime", FrozenDatetime)
+    monkeypatch.setattr(flashcard_repository, "datetime", FrozenDatetime)
+    monkeypatch.setattr(scheduling, "datetime", FrozenDatetime)
     return FrozenDatetime
 
 

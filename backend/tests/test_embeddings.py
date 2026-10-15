@@ -10,8 +10,8 @@ from pydantic import ValidationError
 from sqlalchemy import delete, update
 
 from app.config import Settings, settings
-from app.database import create_note, update_note
 from app.models import NoteEmbedding
+from app.repositories.notes import create_note, update_note
 from app.services import embedding_service
 from app.services.embedding_service import (
     FakeEmbedder,

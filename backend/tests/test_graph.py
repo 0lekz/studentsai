@@ -1,7 +1,7 @@
 import uuid
 
-from app.database import create_note as insert_note
-from app.database import upsert_note_similarity
+from app.repositories.notes import create_note as insert_note
+from app.repositories.notes import upsert_note_similarity
 
 
 def edges(graph: dict) -> set[tuple[str, str, float, str]]:

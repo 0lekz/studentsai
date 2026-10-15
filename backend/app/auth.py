@@ -12,14 +12,14 @@ from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
 from .config import ACCESS_TOKEN_EXPIRE_MINUTES, ALGORITHM, SECRET_KEY
-from .database import (
+from .db.session import get_db
+from .repositories.users import (
     create_user,
-    get_db,
     get_user_by_email,
     get_user_by_oauth,
     get_user_by_username,
 )
-from .schemas import TokenData, UserCreate
+from .schemas.auth import TokenData, UserCreate
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")

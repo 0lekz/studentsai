@@ -6,7 +6,7 @@ from sqlalchemy import DDL, DateTime, ForeignKey, String, event, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.database import Base
+from app.db.base import Base
 
 EMBEDDING_DIMENSIONS = 384
 

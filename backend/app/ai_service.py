@@ -12,7 +12,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 from .config import OPENAI_API_KEY
-from .schemas import GeneratedFlashcard
+from .schemas.ai import GeneratedFlashcard
 
 # Configure OpenAI
 openai.api_key = OPENAI_API_KEY

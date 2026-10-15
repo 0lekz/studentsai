@@ -8,7 +8,7 @@ import argparse
 import sys
 import time
 
-from app.database import SessionLocal
+from app.db.session import SessionLocal
 from app.services.embedding_service import backfill_note_embeddings, get_embedder
 
 

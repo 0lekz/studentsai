@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from .auth import create_access_token
 from .config import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI
-from .database import create_or_get_oauth_user
+from .repositories.users import create_or_get_oauth_user
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)

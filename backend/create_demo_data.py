@@ -14,15 +14,11 @@ import uuid
 from sqlalchemy.orm import Session
 
 from app.config import DEBUG
-from app.database import (
-    add_flashcard_tag,
-    create_flashcard,
-    create_note,
-    get_db,
-    get_user_by_email,
-    set_note_tags,
-)
+from app.db.session import get_db
 from app.models import Course
+from app.repositories.flashcards import add_flashcard_tag, create_flashcard
+from app.repositories.notes import create_note, set_note_tags
+from app.repositories.users import get_user_by_email
 from app.services.courses import create_course
 
 DEMO_COURSE_NAME = "Demo course"

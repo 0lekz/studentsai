@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import get_current_user_id
 from app.config import settings
-from app.database import get_db
+from app.db.session import get_db
 from app.rate_limiter import check_rate_limit
 from app.services.courses import get_course
 from app.services.ingestion import DocumentStorage

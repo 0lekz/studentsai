@@ -27,7 +27,12 @@ from sqlalchemy import make_url, text
 from sqlalchemy.orm import Session
 
 from app import email_service, main
-from app.database import Base, engine, get_db
+from app.api import auth as auth_api
+from app.api import flashcards as flashcards_api
+from app.api import graph as graph_api
+from app.api import notes as notes_api
+from app.db.base import Base
+from app.db.session import engine, get_db
 from app.email_service import create_verification_token
 from app.schemas import GeneratedFlashcard
 
@@ -150,12 +155,14 @@ def network_guard(monkeypatch) -> Iterator[None]:
 @pytest.fixture(autouse=True)
 def fake_ai(monkeypatch) -> FakeAI:
     fake = FakeAI()
-    monkeypatch.setattr(main, "summarize_content", fake.summarize_content)
+    monkeypatch.setattr(notes_api, "summarize_content", fake.summarize_content)
     monkeypatch.setattr(
-        main, "generate_flashcards_from_content", fake.generate_flashcards_from_content
+        flashcards_api,
+        "generate_flashcards_from_content",
+        fake.generate_flashcards_from_content,
     )
     monkeypatch.setattr(
-        main, "calculate_note_similarities", fake.calculate_note_similarities
+        graph_api, "calculate_note_similarities", fake.calculate_note_similarities
     )
     return fake
 
@@ -169,7 +176,7 @@ def fake_mailer(monkeypatch) -> FakeMailer:
         "send_account_deletion_email",
         "send_email_change_verification",
     ):
-        monkeypatch.setattr(main, name, getattr(fake, name))
+        monkeypatch.setattr(auth_api, name, getattr(fake, name))
     monkeypatch.setattr(
         email_service, "send_email_via_sendgrid", fake.send_email_via_sendgrid
     )

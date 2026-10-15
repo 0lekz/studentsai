@@ -16,7 +16,7 @@ filterwarnings = [
     "ignore:builtin type swigvarlink has no __module__ attribute:DeprecationWarning",
 ]
 markers = [
-    "slow: loads the real embedding model; skipped unless selected with -m slow",
+    "slow: needs a real model or a real provider; deselected unless -m slow",
 ]
 
 [tool.ruff]

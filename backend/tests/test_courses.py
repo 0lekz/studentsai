@@ -4,8 +4,7 @@ import pytest
 from sqlalchemy import func, select
 
 from app.config import settings
-from app.database import FlashcardSRS, NoteLink
-from app.models import Course, DocumentChunk, NoteEmbedding
+from app.models import Course, DocumentChunk, FlashcardSRS, NoteEmbedding, NoteLink
 from tests.fixtures.pdfs import Slide, slide_deck
 
 MISSING_ID = "00000000-0000-0000-0000-000000000000"

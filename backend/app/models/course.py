@@ -13,7 +13,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.database import Base
+from app.db.base import Base
 
 COURSE_NAME_MAX_LENGTH = 120
 COURSE_TERM_MAX_LENGTH = 60

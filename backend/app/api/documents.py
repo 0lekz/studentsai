@@ -1,7 +1,6 @@
 import os
 import uuid
 from collections.abc import Callable, Coroutine
-from datetime import datetime
 from pathlib import PurePosixPath
 from typing import Any
 
@@ -17,23 +16,22 @@ from fastapi import (
     status,
 )
 from fastapi.routing import APIRoute
-from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 from starlette.types import Message, Receive
 
 from app.auth import get_current_user_id
 from app.config import settings
-from app.database import get_db
+from app.db.session import get_db
 from app.dependencies import (
     enforce_rate_limit,
     get_document_storage,
     optional_owned_course_id,
 )
-from app.models.document import (
-    Document,
-    DocumentChunk,
-    DocumentKind,
-    DocumentStatus,
+from app.models.document import Document, DocumentChunk
+from app.schemas.documents import (
+    DocumentChunkResponse,
+    DocumentDetailResponse,
+    DocumentResponse,
 )
 from app.services.courses import get_course
 from app.services.ingestion import (
@@ -52,45 +50,6 @@ ACCEPTED_CONTENT_TYPES = {
     "application/x-pdf",
     "application/octet-stream",
 }
-
-
-class OutlineNode(BaseModel):
-    title: str
-    level: int
-    page: int
-    children: list["OutlineNode"]
-
-
-class DocumentResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: uuid.UUID
-    course_id: uuid.UUID
-    filename: str
-    content_type: str
-    size_bytes: int
-    kind: DocumentKind | None
-    page_count: int | None
-    status: DocumentStatus
-    error: str | None
-    created_at: datetime
-    updated_at: datetime
-
-
-class DocumentDetailResponse(DocumentResponse):
-    outline: list[OutlineNode] | None
-
-
-class DocumentChunkResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: uuid.UUID
-    index: int
-    heading_path: list[str]
-    page_start: int
-    page_end: int
-    text: str
-    token_estimate: int
 
 
 def _too_large() -> HTTPException:
