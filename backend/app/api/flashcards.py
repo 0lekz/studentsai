@@ -64,6 +64,7 @@ def _flashcard_response(flashcard: Flashcard) -> FlashcardResponse:
         kind=flashcard.kind,
         choices=flashcard.choices,
         source=flashcard.source,
+        excerpt=flashcard.excerpt,
     )
 
 

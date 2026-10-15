@@ -84,6 +84,10 @@ class Settings(BaseSettings):
     concept_max_prerequisites: int = 2
     concept_extraction_concurrency: int = 4
 
+    # Tutor; below this question-to-chunk cosine similarity, Ask answers that the
+    # material does not cover the question. Calibrated for bge-small-en-v1.5.
+    ask_min_similarity: float = 0.5
+
     # Rate Limiting
     rate_limit_requests: int = 100
     rate_limit_window: int = 3600  # seconds

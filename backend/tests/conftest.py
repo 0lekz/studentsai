@@ -31,10 +31,15 @@ from app.api import auth as auth_api
 from app.api import flashcards as flashcards_api
 from app.api import graph as graph_api
 from app.api import notes as notes_api
+from app.config import settings
 from app.db.base import Base
 from app.db.session import engine, get_db
 from app.email_service import create_verification_token
 from app.schemas import GeneratedFlashcard
+from app.services.llm.fake_client import FakeLLMClient
+from app.services.tutor import ask as tutor_ask
+from app.services.tutor import generation as tutor_generation
+from app.services.tutor import grading as tutor_grading
 
 PASSWORD = "correct-horse-battery"
 
@@ -294,3 +299,35 @@ def create_note() -> Callable[..., dict]:
         return response.json()
 
     return create
+
+
+@pytest.fixture
+def tutor_llm(monkeypatch) -> Callable[..., FakeLLMClient]:
+    """Script the model behind question generation, grading and Ask, per purpose."""
+
+    def script(replies: dict | None = None) -> FakeLLMClient:
+        client = FakeLLMClient(replies)
+        for module in (tutor_ask, tutor_generation, tutor_grading):
+            monkeypatch.setattr(module, "get_llm_client", lambda: client)
+        return client
+
+    return script
+
+
+@pytest.fixture
+def upload_pdf(tmp_path, monkeypatch) -> Callable[..., dict]:
+    """Upload a PDF into a course through the API, storing files in a temporary directory."""
+    monkeypatch.setattr(settings, "document_storage_dir", tmp_path / "documents")
+
+    def upload(
+        client: TestClient, course_id: str, data: bytes, filename: str = "lecture.pdf"
+    ) -> dict:
+        response = client.post(
+            "/documents",
+            data={"course_id": course_id},
+            files={"file": (filename, data, "application/pdf")},
+        )
+        assert response.status_code == 201, response.text
+        return response.json()
+
+    return upload

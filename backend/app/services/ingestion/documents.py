@@ -13,6 +13,7 @@ from app.services.ingestion.extraction import (
     extract_document,
 )
 from app.services.ingestion.storage import DocumentStorage
+from app.services.tutor.embeddings import embed_document_chunks
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +60,8 @@ def ingest_pdf(
         storage.delete(document.storage_path)
         raise
     db.refresh(document)
+    if document.status == DocumentStatus.READY.value:
+        embed_document_chunks(db, document.chunks)
     return document
 
 

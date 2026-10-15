@@ -14,6 +14,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api import (
+    ask,
     auth,
     concepts,
     courses,
@@ -22,7 +23,9 @@ from app.api import (
     graph,
     health,
     notes,
+    practice,
     profile,
+    today,
     uploads,
 )
 from app.api import settings as settings_api
@@ -34,6 +37,9 @@ CORS_ORIGIN_PATTERN = r"https://([a-zA-Z0-9-]+\.)?(studentsai\.org|vercel\.app)$
 ROUTERS = (
     courses,
     concepts,
+    practice,
+    ask,
+    today,
     documents,
     health,
     auth,

@@ -21,6 +21,7 @@ class FlashcardResponse(BaseSchema):
     kind: FlashcardKind = FlashcardKind.RECALL
     choices: list[Any] | None = None
     source: FlashcardSource = FlashcardSource.USER
+    excerpt: str | None = None
 
 
 class FlashcardReviewRequest(BaseSchema):

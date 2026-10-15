@@ -69,10 +69,11 @@ class Flashcard(Base):
         server_default=FlashcardSource.USER.value,
     )
     prompt_version = Column(String(64), nullable=True)
+    excerpt = Column(Text, nullable=True)
 
     # Foreign keys
     note_id = Column(
-        UUID(as_uuid=True), ForeignKey("notes.id", ondelete="CASCADE"), nullable=False
+        UUID(as_uuid=True), ForeignKey("notes.id", ondelete="CASCADE"), nullable=True
     )
     user_id = Column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
@@ -85,7 +86,7 @@ class Flashcard(Base):
     )
     chunk_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("document_chunks.id", ondelete="SET NULL"),
+        ForeignKey("document_chunks.id", ondelete="CASCADE"),
         nullable=True,
         index=True,
     )

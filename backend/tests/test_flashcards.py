@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from sqlalchemy.exc import IntegrityError
 
-from app.models import Document, DocumentChunk, Flashcard
+from app.models import Document, DocumentChunk, Flashcard, FlashcardSRS
 from app.repositories.flashcards import create_flashcard
 from app.repositories.notes import create_note as insert_note
 from app.services.courses import create_course
@@ -78,6 +78,7 @@ def test_flashcards_carry_no_mastery_or_contextual_fields(flashcard):
         "kind",
         "choices",
         "source",
+        "excerpt",
     }
 
 
@@ -388,7 +389,9 @@ def stored_card(db_session, user) -> Flashcard:
     return create_flashcard(db_session, "Q?", "A", note.id, note.user_id)
 
 
-def test_deleting_a_cards_source_chunk_keeps_the_card(db_session, stored_card):
+def test_deleting_a_cards_source_chunk_deletes_the_card_and_its_schedule(
+    db_session, stored_card
+):
     course = create_course(
         db_session, stored_card.user_id, name="Biology", term=None, exam_date=None
     )
@@ -412,13 +415,15 @@ def test_deleting_a_cards_source_chunk_keeps_the_card(db_session, stored_card):
     db_session.add(document)
     db_session.flush()
     stored_card.chunk_id = chunk.id
+    card_id = stored_card.id
     db_session.commit()
 
     db_session.delete(document)
     db_session.commit()
 
-    db_session.expire_all()
-    assert db_session.get(Flashcard, stored_card.id).chunk_id is None
+    db_session.expunge_all()
+    assert db_session.get(Flashcard, card_id) is None
+    assert db_session.get(FlashcardSRS, card_id) is None
 
 
 @pytest.mark.parametrize(

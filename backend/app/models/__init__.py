@@ -1,3 +1,4 @@
+from app.models.chunk_embedding import ChunkEmbedding
 from app.models.concept import (
     Concept,
     ConceptChunk,
@@ -17,9 +18,12 @@ from app.models.flashcard import (
 from app.models.llm_call import LLMCacheEntry, LLMCall
 from app.models.note import Note, NoteLink, NoteSimilarity
 from app.models.note_embedding import NoteEmbedding
+from app.models.question_generation import ChunkQuestionGeneration
 from app.models.user import User
 
 __all__ = [
+    "ChunkEmbedding",
+    "ChunkQuestionGeneration",
     "Concept",
     "ConceptChunk",
     "ConceptEdge",
