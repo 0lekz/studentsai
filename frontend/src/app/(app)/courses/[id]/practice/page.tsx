@@ -1,16 +1,15 @@
 'use client'
 
-import { FlashcardDashboard } from '@/components/flashcards/FlashcardDashboard'
-import { PracticeEmptyState } from '@/components/practice/PracticeEmptyState'
+import { Suspense } from 'react'
 import { useCourse } from '@/components/course/CourseProvider'
+import { PracticeView } from '@/components/practice/PracticeView'
+import { Spinner } from '@/components/ui/spinner'
 
 export default function PracticePage() {
   const { course } = useCourse()
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto">
-      <div className="mx-auto w-full max-w-content px-gutter py-section">
-        <FlashcardDashboard courseId={course.id} emptyState={<PracticeEmptyState courseId={course.id} />} />
-      </div>
-    </div>
+    <Suspense fallback={<Spinner className="flex-1" label="Loading practice" />}>
+      <PracticeView courseId={course.id} />
+    </Suspense>
   )
 }

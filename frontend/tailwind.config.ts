@@ -5,6 +5,9 @@ import typography from "@tailwindcss/typography";
 const token = (name: string) => `hsl(var(--${name}) / <alpha-value>)`;
 
 export default {
+  future: {
+    hoverOnlyWhenSupported: true,
+  },
   darkMode: ["variant", "&:is(.dark *):not(.light *)"],
   content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
@@ -61,6 +64,11 @@ export default {
           soft: token("warning-soft"),
           "soft-foreground": token("warning-soft-foreground"),
         },
+        mastery: {
+          low: token("mastery-low"),
+          mid: token("mastery-mid"),
+          high: token("mastery-high"),
+        },
         orange: {
           50: "#fff7ed",
           100: "#ffedd5",
@@ -111,6 +119,37 @@ export default {
       maxWidth: {
         content: "var(--content-max-width)",
         prose: "var(--prose-max-width)",
+      },
+      keyframes: {
+        indeterminate: {
+          "0%": { transform: "translateX(-100%)" },
+          "100%": { transform: "translateX(300%)" },
+        },
+      },
+      animation: {
+        indeterminate: "indeterminate 1.4s ease-in-out infinite",
+      },
+      typography: {
+        app: {
+          css: {
+            "--tw-prose-body": "hsl(var(--foreground))",
+            "--tw-prose-headings": "hsl(var(--foreground))",
+            "--tw-prose-lead": "hsl(var(--muted-foreground))",
+            "--tw-prose-links": "hsl(var(--primary))",
+            "--tw-prose-bold": "hsl(var(--foreground))",
+            "--tw-prose-counters": "hsl(var(--muted-foreground))",
+            "--tw-prose-bullets": "hsl(var(--muted-foreground))",
+            "--tw-prose-hr": "hsl(var(--border))",
+            "--tw-prose-quotes": "hsl(var(--foreground))",
+            "--tw-prose-quote-borders": "hsl(var(--brand))",
+            "--tw-prose-captions": "hsl(var(--muted-foreground))",
+            "--tw-prose-code": "hsl(var(--foreground))",
+            "--tw-prose-pre-code": "hsl(var(--foreground))",
+            "--tw-prose-pre-bg": "hsl(var(--muted))",
+            "--tw-prose-th-borders": "hsl(var(--border))",
+            "--tw-prose-td-borders": "hsl(var(--border))",
+          },
+        },
       },
     },
   },

@@ -36,3 +36,16 @@ export function formatFileSize(bytes: number): string {
 export function pluralize(count: number, singular: string, plural: string = `${singular}s`): string {
   return `${count} ${count === 1 ? singular : plural}`
 }
+
+export function formatPages(pageStart: number, pageEnd: number, style: 'short' | 'long' = 'short'): string {
+  const range = pageEnd > pageStart ? `${pageStart}-${pageEnd}` : `${pageStart}`
+  if (style === 'long') return `${pageEnd > pageStart ? 'Pages' : 'Page'} ${range}`
+  return `${pageEnd > pageStart ? 'pp.' : 'p.'} ${range}`
+}
+
+export function formatRelativeDue(dateOnly: string, now: Date = new Date()): string {
+  const days = daysUntil(dateOnly, now)
+  if (days <= 0) return 'today'
+  if (days === 1) return 'tomorrow'
+  return `in ${days} days`
+}

@@ -60,6 +60,9 @@
     --warning: 38 92% 50%;
     --warning-soft: 48 100% 96%;
     --warning-soft-foreground: 32 81% 29%;
+    --mastery-low: 27 96% 61%;
+    --mastery-mid: 21 90% 48%;
+    --mastery-high: 15 79% 34%;
 
     color-scheme: light;
   }
@@ -94,6 +97,9 @@
     --warning: 43 96% 56%;
     --warning-soft: 40 45% 11%;
     --warning-soft-foreground: 48 96% 77%;
+    --mastery-low: 15 79% 34%;
+    --mastery-mid: 21 90% 48%;
+    --mastery-high: 31 97% 72%;
 
     color-scheme: dark;
   }
@@ -117,6 +123,12 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
+  }
+}
+
+@layer components {
+  .citation-marker {
+    @apply mx-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-soft px-1.5 align-text-top text-caption font-semibold text-brand-soft-foreground no-underline transition-colors hover:bg-primary hover:text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring;
   }
 }
 

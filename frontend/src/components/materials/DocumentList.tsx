@@ -20,8 +20,8 @@ interface DocumentListProps {
 
 function documentMeta(document: DocumentSummary): string {
   const parts = [
-    document.kind === 'slides' ? 'Slides' : 'PDF',
-    document.page_count ? pluralize(document.page_count, document.kind === 'slides' ? 'slide' : 'page') : null,
+    document.kind === 'slides' ? null : 'PDF',
+    document.page_count ? pluralize(document.page_count, document.kind === 'slides' ? 'slide' : 'page') : document.kind === 'slides' ? 'Slides' : null,
     formatFileSize(document.size_bytes),
     formatShortDate(document.created_at),
   ]

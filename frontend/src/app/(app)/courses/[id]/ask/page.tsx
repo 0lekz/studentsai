@@ -5,5 +5,5 @@ import { useCourse } from '@/components/course/CourseProvider'
 
 export default function AskPage() {
   const { course } = useCourse()
-  return <AskView courseName={course.name} />
+  return <AskView courseId={course.id} courseName={course.name} />
 }

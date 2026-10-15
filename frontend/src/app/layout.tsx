@@ -7,8 +7,8 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 
 export const metadata: Metadata = {
-  title: "StudentsAI - Your Intelligent Study Companion",
-  description: "AI-powered study assistant for students. Create notes, generate summaries, flashcards, and visualize knowledge connections.",
+  title: "StudentsAI - A tutor that has read your course",
+  description: "Drop in your lecture slides. StudentsAI quizzes you on them, grades your answers with feedback that cites the slide, and shows what to study next.",
   icons: {
     icon: '/favicon.ico',
     shortcut: '/favicon.ico',

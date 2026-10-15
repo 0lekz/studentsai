@@ -21,18 +21,20 @@ export function PublicHeader() {
         </Link>
         
         {/* Right side - Navigation buttons at very right edge */}
-        <nav className="flex items-center gap-3">
-          <Link href="/auth" className="text-sm text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 rounded px-1">Log in</Link>
+        <nav className="flex items-center gap-2 sm:gap-3">
+          <Link href="/auth" className="whitespace-nowrap text-sm text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 rounded px-1">Log in</Link>
           <Link href="/auth">
-            <Button className="bg-orange-500 hover:bg-orange-600 focus-visible:ring-orange-500 h-8">Start Free</Button>
+            <Button className="bg-orange-500 hover:bg-orange-600 focus-visible:ring-orange-500 h-8 px-3 sm:px-4">Start free</Button>
           </Link>
           <a
             href="https://github.com/Oleksiy-Zhukov/students-ai-toolkit"
             target="_blank"
             rel="noopener noreferrer"
+            aria-label="StudentsAI on GitHub"
             className="inline-flex items-center gap-1 text-sm text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 rounded px-1"
           >
-            <Github className="h-4 w-4" /> GitHub
+            <Github className="h-4 w-4" />
+            <span className="hidden sm:inline">GitHub</span>
           </a>
           <ThemeToggle />
         </nav>

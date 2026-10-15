@@ -1,26 +1,11 @@
 import fs from 'node:fs'
-import path from 'node:path'
 import { expect, test, type Page } from '@playwright/test'
-import { CREDENTIALS_FILE, SCREENSHOT_DIR, type E2ECredentials } from './env'
+import { CREDENTIALS_FILE, type E2ECredentials } from './env'
+import { collectPageErrors, isPhone, openSection, screenshot } from './helpers'
 import { buildPdf } from './pdf'
-
-const SECTIONS = ['Materials', 'Practice', 'Ask', 'Map', 'Notes'] as const
 
 function credentials(): E2ECredentials {
   return JSON.parse(fs.readFileSync(CREDENTIALS_FILE, 'utf8'))
-}
-
-async function screenshot(page: Page, project: string, name: string) {
-  await page.waitForLoadState('networkidle')
-  await page.screenshot({
-    path: path.join(SCREENSHOT_DIR, project, `${name}.png`),
-    animations: 'disabled',
-    style: 'nextjs-portal { display: none !important; }',
-  })
-}
-
-function isPhone(page: Page): boolean {
-  return (page.viewportSize()?.width ?? 0) < 768
 }
 
 async function writeNote(page: Page, title: string, body: string) {
@@ -37,16 +22,9 @@ async function writeNote(page: Page, title: string, body: string) {
   await expect(page.getByText(/^Saved/).first()).toBeVisible()
 }
 
-async function openSection(page: Page, section: (typeof SECTIONS)[number]) {
-  const nav = page.getByRole('navigation', { name: 'Course sections' }).filter({ visible: true })
-  await nav.getByRole('link', { name: section }).click()
-  await expect(page).toHaveURL(new RegExp(`/courses/[^/]+/${section.toLowerCase()}`))
-}
-
 test('signs in, creates a course and opens every section', async ({ page }, testInfo) => {
   const project = testInfo.project.name
-  const pageErrors: string[] = []
-  page.on('pageerror', (error) => pageErrors.push(`${page.url()}: ${error.message}\n${error.stack ?? ''}`))
+  const pageErrors = collectPageErrors(page)
 
   const { email, password } = credentials()
   await page.goto('/auth', { waitUntil: 'networkidle' })
@@ -95,7 +73,7 @@ test('signs in, creates a course and opens every section', async ({ page }, test
   await screenshot(page, project, '05-materials')
 
   await openSection(page, 'Practice')
-  await expect(page.getByRole('heading', { name: 'Practice from your slides' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Practice session' })).toBeVisible()
   await screenshot(page, project, '06-practice')
 
   await openSection(page, 'Ask')
@@ -117,10 +95,9 @@ test('signs in, creates a course and opens every section', async ({ page }, test
   }
 
   await openSection(page, 'Map')
-  await expect(page.getByText(/2 notes · 1 link/)).toBeVisible()
-  await expect(page.getByRole('img', { name: /notes connect/ }).locator('circle')).toHaveCount(2)
-  await page.waitForTimeout(1500)
-  await screenshot(page, project, '10-map')
+  await expect(page.getByRole('heading', { name: 'Map this course' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Extract concepts' })).toBeVisible()
+  await screenshot(page, project, '10-map-empty')
 
   await page.goto('/settings')
   await expect(page.getByRole('heading', { name: 'Settings', level: 1 })).toBeVisible()

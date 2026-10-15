@@ -31,11 +31,31 @@ export type GraphData = ApiResponse<'/graph', 'get'>
 export type GraphNode = GraphData['nodes'][number]
 export type GraphConnection = GraphData['connections'][number]
 export type DocumentSummary = ApiResponse<'/documents', 'get'>[number]
+export type DocumentChunk = ApiResponse<'/documents/{document_id}/chunks', 'get'>[number]
 
 export type Course = Schemas['CourseResponse']
 export type CourseListItem = Schemas['CourseListItem']
 export type CourseCreate = Schemas['CourseCreate']
 export type CourseUpdate = Schemas['CourseUpdate']
+
+export type Concept = Schemas['ConceptResponse']
+export type ConceptSource = Schemas['ConceptSourceResponse']
+export type ConceptMap = Schemas['ConceptMapResponse']
+export type ConceptMapNode = Schemas['ConceptMapNode']
+export type ConceptMapEdge = Schemas['ConceptMapEdge']
+export type ConceptEdgeKind = Schemas['ConceptEdgeKind']
+
+export type QuestionKind = Schemas['FlashcardKind']
+export type Verdict = Schemas['Verdict']
+export type PracticeQuestion = Schemas['PracticeQuestion']
+export type QuestionSource = Schemas['QuestionSource']
+export type Citation = Schemas['Citation']
+export type AnswerBody = Schemas['AnswerRequest']
+export type AnswerResult = Schemas['AnswerResponse']
+export type SrsState = Schemas['SrsState']
+export type AskResult = Schemas['AskResponse']
+export type TodaySummary = Schemas['TodayResponse']
+export type TodayCourse = Schemas['TodayCourse']
 
 type AuthResponse = ApiResponse<'/auth/login', 'post'>
 
@@ -218,6 +238,74 @@ class APIClient {
 
   async deleteDocument(id: string): Promise<void> {
     await this.request(`/documents/${id}`, { method: 'DELETE' })
+  }
+
+  async getDocumentChunks(documentId: string): Promise<DocumentChunk[]> {
+    return this.request(`/documents/${documentId}/chunks`)
+  }
+
+  // Concepts
+  async getConcepts(courseId: string): Promise<ApiResponse<'/courses/{course_id}/concepts', 'get'>> {
+    return this.request(`/courses/${courseId}/concepts`)
+  }
+
+  async extractConcepts(courseId: string): Promise<ApiResponse<'/courses/{course_id}/concepts/extract', 'post'>> {
+    return this.request(`/courses/${courseId}/concepts/extract`, { method: 'POST' })
+  }
+
+  async getConceptMap(courseId: string): Promise<ConceptMap> {
+    return this.request(`/courses/${courseId}/map`)
+  }
+
+  async renameConcept(courseId: string, conceptId: string, name: string): Promise<Concept> {
+    const body: ApiJsonBody<'/courses/{course_id}/concepts/{concept_id}', 'patch'> = { name }
+    return this.request(`/courses/${courseId}/concepts/${conceptId}`, { method: 'PATCH', body: JSON.stringify(body) })
+  }
+
+  async deleteConcept(courseId: string, conceptId: string): Promise<void> {
+    await this.request(`/courses/${courseId}/concepts/${conceptId}`, { method: 'DELETE' })
+  }
+
+  // Tutor
+  async getToday(): Promise<TodaySummary> {
+    return this.request('/today')
+  }
+
+  async startPracticeSession(courseId: string, size?: number): Promise<PracticeQuestion[]> {
+    const body: ApiJsonBody<'/courses/{course_id}/practice/session', 'post'> = size === undefined ? null : { size }
+    const session: ApiResponse<'/courses/{course_id}/practice/session', 'post'> = await this.request(`/courses/${courseId}/practice/session`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+    return session.questions
+  }
+
+  async generateQuestions(courseId: string, body: ApiJsonBody<'/courses/{course_id}/questions/generate', 'post'>): Promise<PracticeQuestion[]> {
+    const generated: ApiResponse<'/courses/{course_id}/questions/generate', 'post'> = await this.request(`/courses/${courseId}/questions/generate`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+    return generated.questions
+  }
+
+  async answerQuestion(questionId: string, body: AnswerBody): Promise<AnswerResult> {
+    return this.request(`/questions/${questionId}/answer`, { method: 'POST', body: JSON.stringify(body) })
+  }
+
+  async askCourse(courseId: string, question: string): Promise<AskResult> {
+    const body: ApiJsonBody<'/courses/{course_id}/ask', 'post'> = { question }
+    return this.request(`/courses/${courseId}/ask`, { method: 'POST', body: JSON.stringify(body) })
+  }
+
+  // Self-graded fallback for recall questions: a question is stored as a flashcard, which carries the reference answer.
+  async getQuestionReference(courseId: string, questionId: string): Promise<string | null> {
+    const flashcards = await this.getUserFlashcards({ courseId })
+    return flashcards.find((flashcard) => flashcard.id === questionId)?.answer ?? null
+  }
+
+  async selfGradeQuestion(questionId: string, quality: number): Promise<SrsState> {
+    const { due_date, interval_days, repetitions } = await this.reviewFlashcard(questionId, quality)
+    return { due_date, interval_days, repetitions }
   }
 
   // Notes

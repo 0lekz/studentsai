@@ -37,7 +37,7 @@ export function FeatureGrid({ features }: FeatureGridProps) {
             onClick={() => openModal(feature)}
           >
             {/* Feature Card */}
-            <div className="relative bg-white dark:bg-[#141820] rounded-2xl border border-gray-200 dark:border-[#232a36] overflow-hidden shadow-sm hover:shadow-xl transition-all duration-500 ease-out transform hover:-translate-y-2 flex flex-col">
+            <div className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-sm transition-all duration-500 ease-out hover:-translate-y-2 hover:shadow-xl">
               
               {/* Icon and Title Header */}
               <div className="p-8 pb-6">
@@ -45,16 +45,13 @@ export function FeatureGrid({ features }: FeatureGridProps) {
                   <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center text-white">
                     {feature.icon}
                   </div>
-                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                  <h3 className="text-xl font-semibold text-foreground">
                     {feature.title}
                   </h3>
                 </div>
-                
-                {/* Description */}
-                <p className="text-gray-600 dark:text-gray-300 text-base leading-relaxed">
+
+                <p className="text-base leading-relaxed text-muted-foreground">
                   {feature.description}
-                  {index === 0 && <span className="block h-8"></span>}
-                  {index === 1 && <span className="block h-8"></span>}
                 </p>
               </div>
 

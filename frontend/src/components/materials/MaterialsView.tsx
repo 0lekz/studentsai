@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
 import { Spinner } from '@/components/ui/spinner'
 import { SectionToolbar } from '@/components/course/SectionToolbar'
+import { ConceptExtractionCard } from './ConceptExtractionCard'
 import { DocumentList } from './DocumentList'
 import { UploadDropzone } from './UploadDropzone'
 import { useCourseDocuments } from './useCourseDocuments'
@@ -80,7 +81,10 @@ export function MaterialsView({ courseId }: { courseId: string }) {
         {!loadError && documents === null && <Spinner label="Loading materials" />}
         {documents !== null &&
           (hasMaterials ? (
-            <DocumentList documents={documents} uploadingNames={uploadingNames} onDelete={setPendingDelete} />
+            <>
+              {documents.length > 0 && <ConceptExtractionCard courseId={courseId} documents={documents} />}
+              <DocumentList documents={documents} uploadingNames={uploadingNames} onDelete={setPendingDelete} />
+            </>
           ) : (
             <UploadDropzone onFiles={upload} onBrowse={browse} />
           ))}

@@ -1,107 +1,78 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
-import { CalendarCheck, GraduationCap, Play, Plus } from 'lucide-react'
-import { api, type Flashcard } from '@/lib/api'
-import { pluralize } from '@/lib/format'
-import { Alert } from '@/components/ui/alert'
+import { FileText, GraduationCap, Layers, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { EmptyState } from '@/components/ui/empty-state'
 import { Spinner } from '@/components/ui/spinner'
-import { StudySession } from '@/components/flashcards/StudySession'
 import { useSession } from '@/components/shell/SessionProvider'
-import { CourseSummaryList } from './CourseSummaryList'
-import { useDueFlashcards } from './useDueFlashcards'
+import { CourseFocusList } from './CourseFocusList'
+import { SessionHero } from './SessionHero'
+import { useToday } from './useToday'
 
-const rateFlashcard = (card: Flashcard, quality: number) => api.reviewFlashcard(card.id, quality)
+const ONBOARDING_STEPS = [
+  { icon: GraduationCap, title: 'Add a course', description: 'One per class you are taking, with its exam date if you know it.' },
+  { icon: FileText, title: 'Drop in the slides', description: 'Lecture slides and PDFs become concepts and practice questions.' },
+  { icon: Layers, title: 'Practice daily', description: 'Twenty minutes a day, with feedback that cites your slides.' },
+]
 
 function todayLabel(): string {
   return new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })
 }
 
+function Onboarding() {
+  return (
+    <section aria-labelledby="onboarding-title" className="mt-8 rounded-card border border-border bg-surface p-6 shadow-sm sm:p-8">
+      <h2 id="onboarding-title" className="text-title font-semibold text-foreground">
+        Start with a course
+      </h2>
+      <p className="mt-1 text-body text-muted-foreground">StudentsAI works from your own course material. Three steps and Today lines up your first session.</p>
+      <ol className="mt-6 grid gap-4 sm:grid-cols-3">
+        {ONBOARDING_STEPS.map(({ icon: Icon, title, description }, index) => (
+          <li key={title} className="rounded-card bg-muted p-4">
+            <div className="flex items-center gap-2">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-soft text-brand-soft-foreground">
+                <Icon className="h-4 w-4" aria-hidden />
+              </span>
+              <span className="text-caption font-medium text-muted-foreground">Step {index + 1}</span>
+            </div>
+            <p className="mt-3 text-body font-semibold text-foreground">{title}</p>
+            <p className="mt-1 text-body text-muted-foreground">{description}</p>
+          </li>
+        ))}
+      </ol>
+      <Button asChild size="lg" className="mt-6 w-full sm:w-auto">
+        <Link href="/courses/new">
+          <Plus className="h-4 w-4" />
+          Add course
+        </Link>
+      </Button>
+    </section>
+  )
+}
+
 export function TodayView() {
   const { user, courses } = useSession()
-  const { due, error, reload } = useDueFlashcards()
-  const [session, setSession] = useState<Flashcard[] | null>(null)
-
+  const { today, error, reload } = useToday()
   const activeCourses = courses?.filter((course) => !course.archived) ?? []
-  const dueCount = due?.length ?? 0
-
-  if (session) {
-    return (
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="px-gutter py-section">
-          <StudySession
-            cards={session}
-            onRate={rateFlashcard}
-            onExit={() => {
-              setSession(null)
-              reload()
-            }}
-          />
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto w-full max-w-content px-gutter py-section">
         <p className="text-body text-muted-foreground">{todayLabel()}</p>
-        <h1 className="mt-1 text-headline font-semibold text-foreground md:text-display">Hi {user.username}</h1>
+        <h1 className="mt-1 break-words text-headline font-semibold text-foreground md:text-display">Hi {user.username}</h1>
 
         {courses === null ? (
           <Spinner label="Loading your courses" />
         ) : activeCourses.length === 0 ? (
-          <div className="mt-8 rounded-card border border-border bg-surface">
-            <EmptyState
-              icon={GraduationCap}
-              title="Start with a course"
-              description="Add a course, drop in its slides, and Today will line up what to review."
-            >
-              <Button asChild size="lg">
-                <Link href="/courses/new">
-                  <Plus className="h-4 w-4" />
-                  Add course
-                </Link>
-              </Button>
-            </EmptyState>
-          </div>
+          <Onboarding />
         ) : (
           <>
-            <section aria-labelledby="due-title" className="mt-8 rounded-card border border-border bg-surface p-6 shadow-sm">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-start gap-4">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-card bg-brand-soft text-brand-soft-foreground">
-                    <CalendarCheck className="h-6 w-6" aria-hidden />
-                  </div>
-                  <div>
-                    <h2 id="due-title" className="text-title font-semibold text-foreground">
-                      {due === null ? 'Checking your reviews...' : dueCount > 0 ? `${pluralize(dueCount, 'review')} due` : 'Nothing due right now'}
-                    </h2>
-                    <p className="text-body text-muted-foreground">
-                      {dueCount > 0 ? 'Cards you reviewed before, scheduled for today across all courses.' : 'Practice a course to build up your review queue.'}
-                    </p>
-                  </div>
-                </div>
-                <Button size="lg" disabled={dueCount === 0} onClick={() => due && setSession(due)} className="w-full sm:w-auto">
-                  <Play className="h-4 w-4" />
-                  Start session
-                </Button>
-              </div>
-              {error && (
-                <Alert variant="error" className="mt-4">
-                  {error}
-                </Alert>
-              )}
-            </section>
-
+            <SessionHero today={today} error={error} courses={activeCourses} onRetry={reload} />
             <section aria-labelledby="courses-title" className="mt-section">
               <h2 id="courses-title" className="mb-3 text-body font-semibold text-foreground">
                 Your courses
               </h2>
-              <CourseSummaryList courses={activeCourses} />
+              <CourseFocusList courses={activeCourses} focus={today?.courses ?? (error ? [] : null)} />
             </section>
           </>
         )}

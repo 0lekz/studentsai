@@ -41,6 +41,184 @@ export interface paths {
         patch: operations["edit_course_courses__course_id__patch"];
         trace?: never;
     };
+    "/courses/{course_id}/concepts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Concepts
+         * @description The course's concepts in order of first appearance.
+         */
+        get: operations["get_concepts_courses__course_id__concepts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/courses/{course_id}/concepts/extract": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Extract Concepts
+         * @description Extracts concepts from the course's ready documents not extracted yet, then lists all of them.
+         */
+        post: operations["extract_concepts_courses__course_id__concepts_extract_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/courses/{course_id}/map": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Concept Map */
+        get: operations["get_concept_map_courses__course_id__map_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/courses/{course_id}/concepts/{concept_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove Concept */
+        delete: operations["remove_concept_courses__course_id__concepts__concept_id__delete"];
+        options?: never;
+        head?: never;
+        /** Edit Concept */
+        patch: operations["edit_concept_courses__course_id__concepts__concept_id__patch"];
+        trace?: never;
+    };
+    "/courses/{course_id}/questions/generate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Generate Course Questions
+         * @description Generate questions from one chunk, one concept's chunks, or the course's chunks not yet used.
+         *
+         *     Every valid question of each chunk visited is kept, so more than `count` can
+         *     come back; a chunk already used at the current prompt version adds nothing.
+         */
+        post: operations["generate_course_questions_courses__course_id__questions_generate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/courses/{course_id}/practice/session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Practice Session
+         * @description Due reviews, then unseen questions on the weakest concepts, then generated ones.
+         */
+        post: operations["start_practice_session_courses__course_id__practice_session_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/questions/{question_id}/answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Answer
+         * @description Grade an answer and reschedule the question with SM-2.
+         */
+        post: operations["answer_questions__question_id__answer_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/courses/{course_id}/ask": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask
+         * @description Answer from the course material only, citing the chunks used; `[n]` in the answer is `citations[n - 1]`.
+         */
+        post: operations["ask_courses__course_id__ask_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/today": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Today
+         * @description Due cards per active course, its three weakest practiced concepts, and the session to start with.
+         */
+        get: operations["get_today_today_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/documents": {
         parameters: {
             query?: never;
@@ -331,6 +509,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/forgot-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Forgot Password
+         * @description Send password reset email (does not reveal if email exists).
+         */
+        post: operations["forgot_password_auth_forgot_password_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/request-account-deletion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request Account Deletion
+         * @description Initiate account deletion via email confirmation.
+         */
+        post: operations["request_account_deletion_auth_request_account_deletion_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/confirm-account-deletion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm Account Deletion
+         * @description Confirm account deletion via token and delete user data.
+         */
+        post: operations["confirm_account_deletion_auth_confirm_account_deletion_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/reset-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset Password
+         * @description Reset password using a valid token.
+         */
+        post: operations["reset_password_auth_reset_password_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/notes": {
         parameters: {
             query?: never;
@@ -471,26 +729,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/ai/flashcards": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Generate Flashcards
-         * @description Generate flashcards from content
-         */
-        post: operations["generate_flashcards_ai_flashcards_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/notes/{note_id}/summarize": {
         parameters: {
             query?: never;
@@ -505,6 +743,26 @@ export interface paths {
          * @description Generate summary for a specific note
          */
         post: operations["summarize_note_notes__note_id__summarize_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ai/flashcards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Generate Flashcards
+         * @description Generate flashcards from content
+         */
+        post: operations["generate_flashcards_ai_flashcards_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -773,86 +1031,6 @@ export interface paths {
         patch: operations["update_profile_settings_api_settings_profile_patch"];
         trace?: never;
     };
-    "/auth/forgot-password": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Forgot Password
-         * @description Send password reset email (does not reveal if email exists).
-         */
-        post: operations["forgot_password_auth_forgot_password_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/request-account-deletion": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Request Account Deletion
-         * @description Initiate account deletion via email confirmation.
-         */
-        post: operations["request_account_deletion_auth_request_account_deletion_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/confirm-account-deletion": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Confirm Account Deletion
-         * @description Confirm account deletion via token and delete user data.
-         */
-        post: operations["confirm_account_deletion_auth_confirm_account_deletion_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/reset-password": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Reset Password
-         * @description Reset password using a valid token.
-         */
-        post: operations["reset_password_auth_reset_password_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/settings/username/check/{username}": {
         parameters: {
             query?: never;
@@ -997,6 +1175,45 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * AnswerRequest
+         * @description `choice_index` answers a multiple choice question, `answer` any other kind.
+         */
+        AnswerRequest: {
+            /** Answer */
+            answer?: string | null;
+            /** Choice Index */
+            choice_index?: number | null;
+        };
+        /** AnswerResponse */
+        AnswerResponse: {
+            verdict: components["schemas"]["Verdict"];
+            /** Score */
+            score: number;
+            /** Feedback */
+            feedback: string;
+            /** Missing Points */
+            missing_points: string[];
+            /** Reference Answer */
+            reference_answer: string;
+            source: components["schemas"]["Citation"] | null;
+            srs: components["schemas"]["SrsState"];
+        };
+        /** AskRequest */
+        AskRequest: {
+            /** Question */
+            question: string;
+        };
+        /**
+         * AskResponse
+         * @description `[n]` markers in the Markdown answer refer to `citations[n - 1]`.
+         */
+        AskResponse: {
+            /** Answer */
+            answer: string;
+            /** Citations */
+            citations: components["schemas"]["Citation"][];
+        };
         /** BacklinkResponse */
         BacklinkResponse: {
             /**
@@ -1034,6 +1251,143 @@ export interface components {
              * Format: binary
              */
             file: string;
+        };
+        /** Citation */
+        Citation: {
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            /** Filename */
+            filename: string;
+            /**
+             * Chunk Id
+             * Format: uuid
+             */
+            chunk_id: string;
+            /** Page Start */
+            page_start: number;
+            /** Page End */
+            page_end: number;
+            /** Excerpt */
+            excerpt: string;
+        };
+        /**
+         * ConceptEdgeKind
+         * @enum {string}
+         */
+        ConceptEdgeKind: "prerequisite" | "related";
+        /** ConceptMapEdge */
+        ConceptMapEdge: {
+            /**
+             * Source
+             * Format: uuid
+             */
+            source: string;
+            /**
+             * Target
+             * Format: uuid
+             */
+            target: string;
+            kind: components["schemas"]["ConceptEdgeKind"];
+            /** Weight */
+            weight: number;
+        };
+        /** ConceptMapNode */
+        ConceptMapNode: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Mastery */
+            mastery: number | null;
+            /** Question Count */
+            question_count: number;
+            /** Order */
+            order: number;
+        };
+        /** ConceptMapResponse */
+        ConceptMapResponse: {
+            /** Nodes */
+            nodes: components["schemas"]["ConceptMapNode"][];
+            /** Edges */
+            edges: components["schemas"]["ConceptMapEdge"][];
+        };
+        /** ConceptMasteryItem */
+        ConceptMasteryItem: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Mastery */
+            mastery: number;
+        };
+        /** ConceptRef */
+        ConceptRef: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+        };
+        /** ConceptResponse */
+        ConceptResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /** Order */
+            order: number;
+            /**
+             * Mastery
+             * @description 0 to 1 from the SM-2 state of the concept's questions; null without questions
+             */
+            mastery: number | null;
+            /** Question Count */
+            question_count: number;
+            /** Sources */
+            sources: components["schemas"]["ConceptSourceResponse"][];
+        };
+        /** ConceptSourceResponse */
+        ConceptSourceResponse: {
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            /**
+             * Chunk Id
+             * Format: uuid
+             */
+            chunk_id: string;
+            /** Page Start */
+            page_start: number;
+            /** Page End */
+            page_end: number;
+        };
+        /**
+         * ConceptUpdate
+         * @description Only the fields sent are changed.
+         */
+        ConceptUpdate: {
+            /** Name */
+            name?: string | null;
+            /** Description */
+            description?: string | null;
         };
         /** CourseCreate */
         CourseCreate: {
@@ -1075,6 +1429,16 @@ export interface components {
             notes_count: number;
             /** Flashcards Count */
             flashcards_count: number;
+        };
+        /** CourseRef */
+        CourseRef: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
         };
         /** CourseResponse */
         CourseResponse: {
@@ -1261,6 +1625,11 @@ export interface components {
             /** Cards */
             cards: components["schemas"]["FlashcardResponse"][];
         };
+        /**
+         * FlashcardKind
+         * @enum {string}
+         */
+        FlashcardKind: "recall" | "short_answer" | "mcq";
         /** FlashcardResponse */
         FlashcardResponse: {
             /**
@@ -1290,6 +1659,14 @@ export interface components {
             review_count: number;
             /** Course Id */
             course_id?: string | null;
+            /** @default recall */
+            kind: components["schemas"]["FlashcardKind"];
+            /** Choices */
+            choices?: unknown[] | null;
+            /** @default user */
+            source: components["schemas"]["FlashcardSource"];
+            /** Excerpt */
+            excerpt?: string | null;
         };
         /** FlashcardReviewRequest */
         FlashcardReviewRequest: {
@@ -1337,6 +1714,11 @@ export interface components {
             /** Flashcard Count */
             flashcard_count: number;
         };
+        /**
+         * FlashcardSource
+         * @enum {string}
+         */
+        FlashcardSource: "user" | "generated";
         /** ForgotPasswordRequest */
         ForgotPasswordRequest: {
             /**
@@ -1360,6 +1742,21 @@ export interface components {
             /** Flashcards */
             flashcards: components["schemas"]["GeneratedFlashcard"][];
             /** Count */
+            count: number;
+        };
+        /**
+         * GenerateQuestionsRequest
+         * @description Generate from one chunk, from one concept's chunks, or from the course's least-covered chunks.
+         */
+        GenerateQuestionsRequest: {
+            /** Concept Id */
+            concept_id?: string | null;
+            /** Chunk Id */
+            chunk_id?: string | null;
+            /**
+             * Count
+             * @default 5
+             */
             count: number;
         };
         /** GeneratedFlashcard */
@@ -1515,6 +1912,51 @@ export interface components {
             /** Children */
             children: components["schemas"]["OutlineNode"][];
         };
+        /**
+         * PracticeQuestion
+         * @description A question without its answer; `source` is null for cards written from notes.
+         */
+        PracticeQuestion: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            kind: components["schemas"]["FlashcardKind"];
+            /** Prompt */
+            prompt: string;
+            /** Choices */
+            choices: string[] | null;
+            concept: components["schemas"]["ConceptRef"] | null;
+            source: components["schemas"]["QuestionSource"] | null;
+        };
+        /** PracticeSessionRequest */
+        PracticeSessionRequest: {
+            /**
+             * Size
+             * @default 10
+             */
+            size: number;
+        };
+        /** QuestionList */
+        QuestionList: {
+            /** Questions */
+            questions: components["schemas"]["PracticeQuestion"][];
+        };
+        /** QuestionSource */
+        QuestionSource: {
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            /** Filename */
+            filename: string;
+            /** Page Start */
+            page_start: number;
+            /** Page End */
+            page_end: number;
+        };
         /** ResetPasswordRequest */
         ResetPasswordRequest: {
             /** Token */
@@ -1617,12 +2059,34 @@ export interface components {
              */
             linked_notes_suggestions: boolean;
         };
+        /** SrsState */
+        SrsState: {
+            /**
+             * Due Date
+             * Format: date
+             */
+            due_date: string;
+            /** Interval Days */
+            interval_days: number;
+            /** Repetitions */
+            repetitions: number;
+        };
         /** SuccessResponse */
         SuccessResponse: {
             /** Message */
             message: string;
             /** Data */
             data?: Record<string, never> | null;
+        };
+        /** SuggestedSession */
+        SuggestedSession: {
+            /**
+             * Course Id
+             * Format: uuid
+             */
+            course_id: string;
+            /** Size */
+            size: number;
         };
         /** SummarizeRequest */
         SummarizeRequest: {
@@ -1637,6 +2101,22 @@ export interface components {
             word_count: number;
             /** Original Length */
             original_length: number;
+        };
+        /** TodayCourse */
+        TodayCourse: {
+            course: components["schemas"]["CourseRef"];
+            /** Due Count */
+            due_count: number;
+            /** Weakest Concepts */
+            weakest_concepts: components["schemas"]["ConceptMasteryItem"][];
+        };
+        /** TodayResponse */
+        TodayResponse: {
+            /** Due Count */
+            due_count: number;
+            /** Courses */
+            courses: components["schemas"]["TodayCourse"][];
+            suggested: components["schemas"]["SuggestedSession"] | null;
         };
         /** Token */
         Token: {
@@ -1736,6 +2216,11 @@ export interface components {
             /** Error Type */
             type: string;
         };
+        /**
+         * Verdict
+         * @enum {string}
+         */
+        Verdict: "correct" | "partial" | "incorrect";
         /** VerificationResponse */
         VerificationResponse: {
             /** Message */
@@ -1903,6 +2388,325 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_concepts_courses__course_id__concepts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConceptResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    extract_concepts_courses__course_id__concepts_extract_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConceptResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_concept_map_courses__course_id__map_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConceptMapResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_concept_courses__course_id__concepts__concept_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                concept_id: string;
+                course_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_concept_courses__course_id__concepts__concept_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: string;
+                concept_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConceptUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConceptResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generate_course_questions_courses__course_id__questions_generate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GenerateQuestionsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestionList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_practice_session_courses__course_id__practice_session_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PracticeSessionRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestionList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    answer_questions__question_id__answer_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                question_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnswerRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnswerResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ask_courses__course_id__ask_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                course_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AskRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AskResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_today_today_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodayResponse"];
                 };
             };
         };
@@ -2415,6 +3219,125 @@ export interface operations {
             };
         };
     };
+    forgot_password_auth_forgot_password_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ForgotPasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    request_account_deletion_auth_request_account_deletion_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessResponse"];
+                };
+            };
+        };
+    };
+    confirm_account_deletion_auth_confirm_account_deletion_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reset_password_auth_reset_password_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResetPasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_notes_notes_get: {
         parameters: {
             query?: {
@@ -2742,6 +3665,37 @@ export interface operations {
             };
         };
     };
+    summarize_note_notes__note_id__summarize_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                note_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoteResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     generate_flashcards_ai_flashcards_post: {
         parameters: {
             query?: never;
@@ -2762,37 +3716,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GenerateFlashcardsResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    summarize_note_notes__note_id__summarize_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                note_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["NoteResponse"];
                 };
             };
             /** @description Validation Error */
@@ -3241,125 +4164,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UserResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    forgot_password_auth_forgot_password_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ForgotPasswordRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    request_account_deletion_auth_request_account_deletion_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SuccessResponse"];
-                };
-            };
-        };
-    };
-    confirm_account_deletion_auth_confirm_account_deletion_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": Record<string, never>;
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SuccessResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    reset_password_auth_reset_password_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ResetPasswordRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
