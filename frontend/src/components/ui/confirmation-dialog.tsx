@@ -3,12 +3,12 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, Loader2 } from 'lucide-react'
 
 interface ConfirmationDialogProps {
   isOpen: boolean
   onClose: () => void
-  onConfirm: () => void
+  onConfirm: () => void | Promise<void>
   title: string
   description: string
   confirmText?: string
@@ -42,22 +42,15 @@ export function ConfirmationDialog({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <div className="flex items-center space-x-2">
-            <AlertTriangle className="h-5 w-5 text-orange-500" />
-            <DialogTitle className="text-lg font-semibold">{title}</DialogTitle>
+          <div className="flex items-center gap-2">
+            <AlertTriangle className={variant === 'destructive' ? 'h-5 w-5 text-destructive' : 'h-5 w-5 text-brand'} />
+            <DialogTitle>{title}</DialogTitle>
           </div>
-          <DialogDescription className="text-gray-600 dark:text-gray-300">
-            {description}
-          </DialogDescription>
+          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
-        
-        <DialogFooter className="flex space-x-2">
-          <Button
-            variant="outline"
-            onClick={onClose}
-            disabled={isLoading}
-            className="flex-1"
-          >
+
+        <DialogFooter className="gap-2 sm:space-x-0">
+          <Button variant="outline" onClick={onClose} disabled={isLoading} className="flex-1">
             {cancelText}
           </Button>
           <Button
@@ -68,7 +61,7 @@ export function ConfirmationDialog({
           >
             {isLoading ? (
               <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                <Loader2 className="h-4 w-4 animate-spin" />
                 Processing...
               </>
             ) : (

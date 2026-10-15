@@ -6,6 +6,7 @@
 
 import Link from 'next/link'
 import { MediaFrame } from '@/components/landing/MediaFrame'
+import { screenshots } from '@/components/landing/screenshots'
 import { ParticlesBackground } from '@/components/landing/ParticlesBackground'
 
 interface HeroProps {
@@ -55,7 +56,7 @@ export function Hero({
 					</div>
 					<div className="animate-in fade-in slide-in-from-bottom-2 flex justify-end items-end">
 						<div className="transform scale-110 md:scale-125 lg:scale-150 translate-x-40 translate-y-4">
-							<MediaFrame src="/screens/Notes.png" alt="Notes view screenshot" priority />
+							<MediaFrame src={screenshots.notes} alt="Notes view screenshot" sizes="(min-width: 1024px) 900px, 100vw" priority />
 						</div>
 					</div>
 				</div>

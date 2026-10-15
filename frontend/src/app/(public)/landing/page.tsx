@@ -9,6 +9,7 @@ import { FeatureGrid } from '@/components/landing/FeatureGrid'
 import { HowItWorks } from '@/components/landing/HowItWorks'
 import { PricingCTA } from '@/components/landing/PricingCTA'
 import { ParallaxGrid } from '@/components/landing/ParallaxGrid'
+import { screenshots } from '@/components/landing/screenshots'
 
 export const metadata: Metadata = {
   title: 'StudentsAI - Your Intelligent Study Companion',
@@ -59,7 +60,7 @@ export default function LandingPage() {
         <FeatureGrid
           features={[
             {
-              src: '/screens/flashcards_view.png',
+              src: screenshots.flashcardsView,
               alt: 'Contextual flashcards',
               title: 'Generate Contextual Flashcards',
               description: 'Generate flashcards using context of your notes and review them at any time.',
@@ -70,7 +71,7 @@ export default function LandingPage() {
               )
             },
             {
-              src: '/screens/customize_your_graph_view.png',
+              src: screenshots.customizeYourGraphView,
               alt: 'Knowledge graph view',
               title: 'Expand Knowledge Context',
               description: 'Generate flashcards based on a graph of knowledge, not just single notes.',
@@ -81,7 +82,7 @@ export default function LandingPage() {
               )
             },
             {
-              src: '/screens/get_feedback_on_your_answers.png',
+              src: screenshots.getFeedbackOnYourAnswers,
               alt: 'AI evaluates your answer',
               title: 'AI Evaluation & Spaced Repetition',
               description: 'Evaluate your answers, get instant AI feedback, and master concepts with spaced repetition.',
@@ -113,7 +114,7 @@ export default function LandingPage() {
           <div className="flex flex-col lg:flex-row gap-12 items-center">
             <div className="flex-1">
               <MediaFrame
-                src="/screens/notes_view_with_backlinks.png"
+                src={screenshots.notesViewWithBacklinks}
                 alt="AI Summary with backlinks"
                 className="shadow-xl"
               />
@@ -150,7 +151,7 @@ export default function LandingPage() {
           <div className="flex flex-col lg:flex-row-reverse gap-12 items-center">
             <div className="flex-1">
               <MediaFrame
-                src="/screens/flashcards_dashboard.png"
+                src={screenshots.flashcardsDashboard}
                 alt="Advanced spaced repetition dashboard"
                 className="shadow-xl"
               />
@@ -187,7 +188,7 @@ export default function LandingPage() {
           <div className="flex flex-col lg:flex-row gap-12 items-center">
             <div className="flex-1">
               <MediaFrame
-                src="/screens/track_your_activity.png"
+                src={screenshots.trackYourActivity}
                 alt="Progress tracking dashboard"
                 className="shadow-xl"
               />

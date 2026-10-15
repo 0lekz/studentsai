@@ -1,10 +1,11 @@
 'use client'
 
 import { useState } from 'react'
+import Image, { type StaticImageData } from 'next/image'
 import { MediaFrame } from './MediaFrame'
 
 interface FeatureItem {
-  src: string
+  src: StaticImageData
   alt: string
   title: string
   description: string
@@ -63,6 +64,7 @@ export function FeatureGrid({ features }: FeatureGridProps) {
                   <MediaFrame
                     src={feature.src}
                     alt={feature.alt}
+                    sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
                     className="w-full"
                   />
                 </div>
@@ -106,11 +108,11 @@ export function FeatureGrid({ features }: FeatureGridProps) {
             
             {/* Screenshot */}
             <div className="relative">
-              <img
+              <Image
                 src={selectedFeature.src}
                 alt={selectedFeature.alt}
+                sizes="100vw"
                 className="w-full h-auto max-w-none rounded-lg shadow-2xl"
-                style={{ maxHeight: 'none' }}
               />
               
               {/* Feature info overlay */}

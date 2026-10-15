@@ -1,0 +1,1 @@
+export const themeInitScript = `(function(){try{var m=localStorage.getItem('theme');var d=window.matchMedia('(prefers-color-scheme: dark)').matches;if(m==='dark'||((m===null||m==='system')&&d)){document.documentElement.classList.add('dark')}}catch(e){}})();`

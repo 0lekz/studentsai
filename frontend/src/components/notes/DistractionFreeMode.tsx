@@ -1,164 +1,102 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { WysiwygEditor } from './WysiwygEditor'
-import { 
-  Minimize2, 
-  Maximize2, 
-  Moon, 
-  Sun, 
-  Focus,
-  Save,
-  X,
-  Settings
-} from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { Focus, Loader2, Maximize2, Minimize2, Moon, Save, Settings, Sun, X } from 'lucide-react'
 import { api, type Note } from '@/lib/api'
+import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import { WysiwygEditor } from './WysiwygEditor'
+
+const AUTOSAVE_DELAY_MS = 3000
 
 interface DistractionFreeModeProps {
   note?: Note
+  courseId?: string
   onSave: (note: Note) => void
   onExit: () => void
   onNavigateByTitle?: (title: string) => void
 }
 
-export function DistractionFreeMode({ 
-  note, 
-  onSave, 
-  onExit
-}: DistractionFreeModeProps) {
+function readStored<T>(key: string, parse: (raw: string) => T, fallback: T): T {
+  if (typeof window === 'undefined') return fallback
+  const saved = localStorage.getItem(key)
+  return saved ? parse(saved) : fallback
+}
+
+function usePersistedSetting<T>(key: string, parse: (raw: string) => T, fallback: T) {
+  const [value, setValue] = useState(() => readStored(key, parse, fallback))
+  useEffect(() => {
+    localStorage.setItem(key, String(value))
+  }, [key, value])
+  return [value, setValue] as const
+}
+
+function toggleFullscreen() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen()
+  } else {
+    document.exitFullscreen()
+  }
+}
+
+function countWords(htmlContent: string): number {
+  const text = htmlContent.replace(/<[^>]*>/g, '').trim()
+  return text ? text.split(/\s+/).length : 0
+}
+
+export function DistractionFreeMode({ note, courseId, onSave, onExit }: DistractionFreeModeProps) {
   const [title, setTitle] = useState(note?.title || '')
   const [content, setContent] = useState(note?.content || '')
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isDarkMode, setIsDarkMode] = useState(() => {
-    // Detect current theme from document
-    if (typeof window !== 'undefined') {
-      return document.documentElement.classList.contains('dark') || 
-             window.matchMedia('(prefers-color-scheme: dark)').matches
-    }
-    return false
+    if (typeof window === 'undefined') return false
+    return document.documentElement.classList.contains('dark') || window.matchMedia('(prefers-color-scheme: dark)').matches
   })
   const [showSettings, setShowSettings] = useState(false)
-  const [fontSize, setFontSize] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('focusedMode_fontSize')
-      return saved ? parseInt(saved) : 16
-    }
-    return 16
-  })
-  const [lineHeight, setLineHeight] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('focusedMode_lineHeight')
-      return saved ? parseFloat(saved) : 1.6
-    }
-    return 1.6
-  })
-  const [maxWidth, setMaxWidth] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('focusedMode_maxWidth')
-      return saved ? parseInt(saved) : 800
-    }
-    return 800
-  })
-  const [showWordCount, setShowWordCount] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('focusedMode_showWordCount')
-      return saved ? saved === 'true' : true
-    }
-    return true
-  })
-  const [autoSave, setAutoSave] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('focusedMode_autoSave')
-      return saved ? saved === 'true' : true
-    }
-    return true
-  })
+  const [fontSize, setFontSize] = usePersistedSetting('focusedMode_fontSize', (raw) => parseInt(raw), 16)
+  const [lineHeight, setLineHeight] = usePersistedSetting('focusedMode_lineHeight', parseFloat, 1.6)
+  const [maxWidth, setMaxWidth] = usePersistedSetting('focusedMode_maxWidth', (raw) => parseInt(raw), 800)
+  const [showWordCount, setShowWordCount] = usePersistedSetting('focusedMode_showWordCount', (raw) => raw === 'true', true)
+  const [autoSave, setAutoSave] = usePersistedSetting('focusedMode_autoSave', (raw) => raw === 'true', true)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const handleSaveRef = useRef<() => Promise<void>>(async () => {})
 
   const isExistingNote = !!note
 
-  // Save settings to localStorage whenever they change
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('focusedMode_fontSize', fontSize.toString())
+  const noteId = note?.id
+  const autoSaveRef = useRef<() => Promise<void>>(async () => {})
+
+  const performAutoSave = async () => {
+    if (!note || (title === note.title && content === note.content)) return
+    setIsSaving(true)
+    try {
+      const savedNote = await api.updateNote(note.id, { title, content })
+      setLastSaved(new Date())
+      onSave(savedNote)
+    } catch (err) {
+      console.error('Auto-save failed:', err)
+    } finally {
+      setIsSaving(false)
     }
-  }, [fontSize])
+  }
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('focusedMode_lineHeight', lineHeight.toString())
-    }
-  }, [lineHeight])
+    autoSaveRef.current = performAutoSave
+  })
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('focusedMode_maxWidth', maxWidth.toString())
-    }
-  }, [maxWidth])
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('focusedMode_showWordCount', showWordCount.toString())
-    }
-  }, [showWordCount])
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('focusedMode_autoSave', autoSave.toString())
-    }
-  }, [autoSave])
-
-  // Auto-save functionality
-  useEffect(() => {
-    if (!isExistingNote || !autoSave || !title.trim() || !content.trim()) return
-
-    const timeoutId = setTimeout(async () => {
-      setIsSaving(true)
-      try {
-        const savedNote = await api.updateNote(note.id, { title, content })
-        setLastSaved(new Date())
-        onSave(savedNote)
-      } catch (err) {
-        console.error('Auto-save failed:', err)
-      } finally {
-        setIsSaving(false)
-      }
-    }, 3000)
-
+    if (!noteId || !autoSave || !title.trim() || !content.trim()) return
+    const timeoutId = setTimeout(() => autoSaveRef.current(), AUTOSAVE_DELAY_MS)
     return () => clearTimeout(timeoutId)
-  }, [title, content, isExistingNote, autoSave, note?.id, onSave])
+  }, [title, content, noteId, autoSave])
 
-  // Toggle fullscreen
-  const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen()
-      setIsFullscreen(true)
-    } else {
-      document.exitFullscreen()
-      setIsFullscreen(false)
-    }
-  }
-
-  // Toggle dark mode
-  const toggleDarkMode = () => {
-    setIsDarkMode(!isDarkMode)
-  }
-
-  // Manual save
   const handleSave = async () => {
     if (!title.trim() || !content.trim()) return
 
     setIsSaving(true)
     try {
-      let savedNote: Note
-      if (isExistingNote) {
-        savedNote = await api.updateNote(note.id, { title, content })
-      } else {
-        savedNote = await api.createNote(title, content)
-      }
+      const savedNote = note ? await api.updateNote(note.id, { title, content }) : await api.createNote(title, content, courseId)
       setLastSaved(new Date())
       onSave(savedNote)
     } catch (err) {
@@ -168,25 +106,24 @@ export function DistractionFreeMode({
     }
   }
 
-  // Keyboard shortcuts
+  useEffect(() => {
+    handleSaveRef.current = handleSave
+  })
+
+  const saveAndExit = () => {
+    handleSaveRef.current().finally(onExit)
+  }
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Cmd/Ctrl + S to save
       if ((e.metaKey || e.ctrlKey) && e.key === 's') {
         e.preventDefault()
-        handleSave()
+        handleSaveRef.current()
       }
-      // Escape to exit (save first)
       if (e.key === 'Escape') {
         e.preventDefault()
-        handleSave().then(() => {
-          onExit()
-        }).catch(() => {
-          // Even if save fails, exit to prevent data loss
-          onExit()
-        })
+        handleSaveRef.current().finally(onExit)
       }
-      // Cmd/Ctrl + Enter to toggle fullscreen
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
         e.preventDefault()
         toggleFullscreen()
@@ -195,246 +132,109 @@ export function DistractionFreeMode({
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [handleSave, onExit])
+  }, [onExit])
 
-  // Listen for fullscreen changes
   useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement)
-    }
-
+    const handleFullscreenChange = () => setIsFullscreen(!!document.fullscreenElement)
     document.addEventListener('fullscreenchange', handleFullscreenChange)
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange)
   }, [])
 
-  const getWordCount = (htmlContent: string): number => {
-    const text = htmlContent.replace(/<[^>]*>/g, '').trim()
-    return text ? text.split(/\s+/).length : 0
-  }
-
-  const wordCount = getWordCount(content)
-
   return (
-    <div className={`fixed inset-0 z-50 ${isDarkMode ? 'dark' : ''}`}>
-      <div className={`h-full w-full ${isDarkMode ? 'bg-[#0f1115]' : 'bg-gray-50'} transition-colors`}>
-        {/* Top Bar */}
-        <div className={`h-12 border-b ${isDarkMode ? 'border-[#232a36] bg-[#0f1115]' : 'border-gray-200 bg-gray-50'} flex items-center justify-between px-4`}>
-          <div className="flex items-center space-x-3">
-            <Focus className="h-5 w-5 text-orange-500" />
-            <span className="font-medium text-gray-900 dark:text-gray-100">Distraction-Free Mode</span>
-            
-            {/* Auto-save indicator */}
+    <div className={cn('fixed inset-0 z-50', isDarkMode ? 'dark' : 'light')}>
+      <div className="flex h-full w-full flex-col bg-background text-foreground transition-colors">
+        <div className="flex h-12 shrink-0 items-center justify-between border-b border-border px-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <Focus className="h-5 w-5 shrink-0 text-brand" />
+            <span className="hidden truncate font-medium sm:inline">Focus mode</span>
             {isExistingNote && autoSave && (
-              <div className="flex items-center space-x-2 text-xs text-gray-500 dark:text-gray-400">
+              <span className="text-caption">
                 {isSaving ? (
-                  <span className="text-orange-600 dark:text-orange-400">Saving...</span>
+                  <span className="text-brand-soft-foreground">Saving...</span>
                 ) : lastSaved ? (
-                  <span className="text-green-600 dark:text-green-400">
-                    Saved {lastSaved.toLocaleTimeString()}
-                  </span>
+                  <span className="text-success">Saved {lastSaved.toLocaleTimeString()}</span>
                 ) : null}
-              </div>
+              </span>
             )}
           </div>
 
-          <div className="flex items-center space-x-2">
-            {/* Word Count */}
-            {showWordCount && (
-              <span className="text-sm text-gray-500 dark:text-gray-400">
-                {wordCount} words
-              </span>
-            )}
-
-            {/* Settings */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowSettings(!showSettings)}
-              className="h-8 w-8 p-0"
-            >
+          <div className="flex items-center gap-1">
+            {showWordCount && <span className="mr-2 hidden text-body text-muted-foreground sm:inline">{countWords(content)} words</span>}
+            <Button variant="ghost" size="icon-sm" onClick={() => setShowSettings(!showSettings)} aria-label="Writing settings" aria-pressed={showSettings}>
               <Settings className="h-4 w-4" />
             </Button>
-
-            {/* Dark Mode Toggle */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={toggleDarkMode}
-              className="h-8 w-8 p-0"
-            >
+            <Button variant="ghost" size="icon-sm" onClick={() => setIsDarkMode(!isDarkMode)} aria-label={isDarkMode ? 'Light background' : 'Dark background'}>
               {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
-
-            {/* Fullscreen Toggle */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={toggleFullscreen}
-              className="h-8 w-8 p-0"
-            >
+            <Button variant="ghost" size="icon-sm" onClick={toggleFullscreen} aria-label={isFullscreen ? 'Exit full screen' : 'Full screen'}>
               {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
             </Button>
-
-            {/* Save Button */}
-            <Button
-              onClick={handleSave}
-              disabled={isSaving || !title.trim() || !content.trim()}
-              className="h-8 px-3 bg-orange-500 hover:bg-orange-600 text-white"
-            >
-              {isSaving ? (
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-              ) : (
-                <>
-                  <Save className="h-4 w-4 mr-1" />
-                  Save
-                </>
-              )}
+            <Button size="sm" onClick={() => handleSave()} disabled={isSaving || !title.trim() || !content.trim()} className="h-8">
+              {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Save
             </Button>
-
-            {/* Exit Button */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                handleSave().then(() => {
-                  onExit()
-                }).catch(() => {
-                  // Even if save fails, exit to prevent data loss
-                  onExit()
-                })
-              }}
-              className="h-8 w-8 p-0"
-            >
+            <Button variant="ghost" size="icon-sm" onClick={saveAndExit} aria-label="Exit focus mode">
               <X className="h-4 w-4" />
             </Button>
           </div>
         </div>
 
-        {/* Settings Panel */}
         {showSettings && (
-          <div className={`absolute top-12 right-4 z-10 w-64 p-4 rounded-lg shadow-lg border ${isDarkMode ? 'bg-[#0f1115] border-[#232a36]' : 'bg-white border-gray-200'}`}>
+          <div className="absolute right-4 top-12 z-10 w-64 rounded-card border border-border bg-popover p-4 text-popover-foreground shadow-lg">
             <div className="space-y-4">
-              <h3 className="font-medium text-gray-900 dark:text-gray-100">Writing Settings</h3>
-              
-              {/* Font Size */}
-              <div>
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Font Size</label>
-                <input
-                  type="range"
-                  min="12"
-                  max="24"
-                  value={fontSize}
-                  onChange={(e) => setFontSize(Number(e.target.value))}
-                  className="w-full mt-1"
-                />
-                <span className="text-xs text-gray-500 dark:text-gray-400">{fontSize}px</span>
-              </div>
-
-              {/* Line Height */}
-              <div>
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Line Height</label>
-                <input
-                  type="range"
-                  min="1.2"
-                  max="2.0"
-                  step="0.1"
-                  value={lineHeight}
-                  onChange={(e) => setLineHeight(Number(e.target.value))}
-                  className="w-full mt-1"
-                />
-                <span className="text-xs text-gray-500 dark:text-gray-400">{lineHeight}</span>
-              </div>
-
-              {/* Max Width */}
-              <div>
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Max Width</label>
-                <input
-                  type="range"
-                  min="600"
-                  max="1200"
-                  step="50"
-                  value={maxWidth}
-                  onChange={(e) => setMaxWidth(Number(e.target.value))}
-                  className="w-full mt-1"
-                />
-                <span className="text-xs text-gray-500 dark:text-gray-400">{maxWidth}px</span>
-              </div>
-
-              {/* Toggles */}
+              <h3 className="font-medium">Writing settings</h3>
+              <label className="block">
+                <span className="text-body font-medium">Font size</span>
+                <input type="range" min="12" max="24" value={fontSize} onChange={(e) => setFontSize(Number(e.target.value))} className="mt-1 w-full accent-[hsl(var(--primary))]" />
+                <span className="text-caption text-muted-foreground">{fontSize}px</span>
+              </label>
+              <label className="block">
+                <span className="text-body font-medium">Line height</span>
+                <input type="range" min="1.2" max="2.0" step="0.1" value={lineHeight} onChange={(e) => setLineHeight(Number(e.target.value))} className="mt-1 w-full accent-[hsl(var(--primary))]" />
+                <span className="text-caption text-muted-foreground">{lineHeight}</span>
+              </label>
+              <label className="block">
+                <span className="text-body font-medium">Max width</span>
+                <input type="range" min="600" max="1200" step="50" value={maxWidth} onChange={(e) => setMaxWidth(Number(e.target.value))} className="mt-1 w-full accent-[hsl(var(--primary))]" />
+                <span className="text-caption text-muted-foreground">{maxWidth}px</span>
+              </label>
               <div className="space-y-2">
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    checked={showWordCount}
-                    onChange={(e) => setShowWordCount(e.target.checked)}
-                    className="rounded"
-                  />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">Show word count</span>
+                <label className="flex items-center gap-2 text-body">
+                  <input type="checkbox" checked={showWordCount} onChange={(e) => setShowWordCount(e.target.checked)} className="rounded accent-[hsl(var(--primary))]" />
+                  Show word count
                 </label>
-                
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    checked={autoSave}
-                    onChange={(e) => setAutoSave(e.target.checked)}
-                    className="rounded"
-                  />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">Auto-save</span>
+                <label className="flex items-center gap-2 text-body">
+                  <input type="checkbox" checked={autoSave} onChange={(e) => setAutoSave(e.target.checked)} className="rounded accent-[hsl(var(--primary))]" />
+                  Auto-save
                 </label>
               </div>
             </div>
           </div>
         )}
 
-        {/* Main Content */}
-        <div className="h-[calc(100%-3rem)] flex flex-col">
-          {/* Title Input */}
-          <div className="px-8 py-6">
-            <Input
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+          <div className="mx-auto w-full px-4 py-6 sm:px-8" style={{ maxWidth: `${maxWidth}px` }}>
+            <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Note title..."
-              className={`text-3xl font-semibold border-0 border-b rounded-none px-0 py-3 focus:ring-0 ${
-                isDarkMode 
-                  ? 'bg-[#0f1115] text-gray-100 border-[#232a36] focus:border-gray-500' 
-                  : 'bg-gray-50 text-gray-900 border-gray-200 focus:border-gray-400'
-              }`}
-              style={{
-                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-                fontSize: '2rem',
-                lineHeight: '1.2'
-              }}
+              placeholder="Note title"
+              aria-label="Note title"
+              className="w-full border-0 border-b border-border bg-transparent pb-3 text-display font-semibold text-foreground placeholder:text-muted-foreground focus:border-input focus:outline-none"
             />
           </div>
-
-          {/* Editor */}
-          <div className="flex-1 px-8 pb-8">
-            <div 
-              className="h-full"
-              style={{ 
-                maxWidth: `${maxWidth}px`,
-                margin: '0 auto'
-              }}
-            >
-              <WysiwygEditor
-                content={content}
-                onChange={setContent}
-                placeholder="Start writing your notes here..."
-                className="h-full"
-                autoFocus={true}
-              />
+          <div className="flex-1 px-4 pb-8 sm:px-8">
+            <div className="mx-auto h-full" style={{ maxWidth: `${maxWidth}px` }}>
+              <WysiwygEditor initialContent={content} onChange={setContent} placeholder="Start writing your notes here..." className="h-full" autoFocus />
             </div>
           </div>
         </div>
 
-        {/* Custom styles for distraction-free mode */}
         <style jsx global>{`
           .ProseMirror {
             font-size: ${fontSize}px !important;
             line-height: ${lineHeight} !important;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
           }
-          
+
           .ProseMirror p.is-editor-empty:first-child::before {
             font-size: ${fontSize}px !important;
             line-height: ${lineHeight} !important;
