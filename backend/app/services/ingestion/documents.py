@@ -23,6 +23,7 @@ def ingest_pdf(
     storage: DocumentStorage,
     *,
     user_id: uuid.UUID,
+    course_id: uuid.UUID,
     filename: str,
     data: bytes,
 ) -> Document:
@@ -34,6 +35,7 @@ def ingest_pdf(
     document = Document(
         id=document_id,
         user_id=user_id,
+        course_id=course_id,
         filename=filename,
         content_type=PDF_CONTENT_TYPE,
         size_bytes=len(data),
@@ -59,14 +61,13 @@ def ingest_pdf(
     return document
 
 
-def list_documents(db: Session, user_id: uuid.UUID) -> list[Document]:
-    return list(
-        db.scalars(
-            select(Document)
-            .where(Document.user_id == user_id)
-            .order_by(Document.created_at.desc(), Document.id)
-        )
-    )
+def list_documents(
+    db: Session, user_id: uuid.UUID, course_id: uuid.UUID | None = None
+) -> list[Document]:
+    query = select(Document).where(Document.user_id == user_id)
+    if course_id is not None:
+        query = query.where(Document.course_id == course_id)
+    return list(db.scalars(query.order_by(Document.created_at.desc(), Document.id)))
 
 
 def get_document(

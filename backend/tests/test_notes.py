@@ -1,9 +1,5 @@
 import uuid
 
-from fastapi.testclient import TestClient
-
-from app import main
-
 MISSING_NOTE_ID = "00000000-0000-0000-0000-000000000000"
 
 
@@ -31,6 +27,7 @@ def test_create_note_returns_the_stored_note(auth_client):
     assert note["content"] == "Light to sugar."
     assert note["summary"] is None
     assert note["tags"] == []
+    assert note["course_id"] is None
 
 
 def test_create_note_with_blank_title_returns_422(auth_client):
@@ -62,8 +59,7 @@ def test_list_notes_respects_skip_and_limit(auth_client, create_note):
     body = auth_client.get("/notes", params={"skip": 2, "limit": 2}).json()
 
     assert len(body["notes"]) == 1
-    # Suspected bug: total is the size of the returned page, not the number of notes.
-    assert body["total"] == 1
+    assert body["total"] == 3
     assert body["page"] == 2
     assert body["per_page"] == 2
 
@@ -78,14 +74,13 @@ def test_get_note_returns_the_note(auth_client, create_note):
     assert response.json()["content"] == note["content"]
 
 
-def test_get_note_omits_stored_tags(auth_client, create_note):
+def test_get_note_returns_stored_tags(auth_client, create_note):
     note = create_note(auth_client)
     auth_client.put(f"/notes/{note['id']}/tags", json={"tags": ["biology"]})
 
     response = auth_client.get(f"/notes/{note['id']}")
 
-    # Suspected bug: GET /notes/{id} never passes tags to NoteResponse.
-    assert response.json()["tags"] == []
+    assert response.json()["tags"] == ["biology"]
 
 
 def test_get_unknown_note_returns_404(auth_client):
@@ -138,19 +133,18 @@ def test_delete_note_removes_its_flashcards_and_links(auth_client, create_note):
     assert backlink_ids(auth_client, other["id"]) == []
 
 
-def test_delete_note_used_as_flashcard_set_seed_fails_with_500(user, create_note):
-    client = TestClient(
-        main.app, headers=user.auth_header, raise_server_exceptions=False
-    )
-    note = create_note(client)
-    client.post("/flashcards/generate", json={"mode": "single", "note_id": note["id"]})
+def test_delete_note_used_as_flashcard_set_seed_removes_the_set(
+    auth_client, create_note
+):
+    note = create_note(auth_client)
+    auth_client.post("/flashcards/generate", json={"note_id": note["id"]})
 
-    response = client.delete(f"/notes/{note['id']}")
+    response = auth_client.delete(f"/notes/{note['id']}")
 
-    # Suspected bug: delete_note does not remove flashcard_sets rows, so the FK blocks it.
-    assert response.status_code == 500
-    assert response.json()["error"] == "Internal server error"
-    assert client.get(f"/notes/{note['id']}").status_code == 200
+    assert response.status_code == 200
+    assert auth_client.get(f"/notes/{note['id']}").status_code == 404
+    assert auth_client.get("/flashcards/sets").json() == []
+    assert auth_client.get("/flashcards/user").json() == []
 
 
 def test_delete_unknown_note_returns_404(auth_client):
@@ -167,31 +161,6 @@ def test_put_tags_replaces_the_note_tags(auth_client, create_note):
     assert response.json()["tags"] == ["c"]
     [listed] = auth_client.get("/notes").json()["notes"]
     assert listed["tags"] == ["c"]
-
-
-def test_extract_keywords_stores_keywords_as_tags(auth_client, create_note, fake_ai):
-    note = create_note(auth_client)
-
-    response = auth_client.post(f"/notes/{note['id']}/extract-keywords")
-
-    assert response.status_code == 200
-    assert response.json()["tags"] == fake_ai.keywords
-
-
-def test_suggest_keywords_returns_keywords_without_storing_them(
-    auth_client, create_note, fake_ai
-):
-    note = create_note(auth_client)
-
-    response = auth_client.get(f"/notes/{note['id']}/keywords")
-
-    assert response.json() == {"note_id": note["id"], "keywords": fake_ai.keywords}
-    assert fake_ai.calls[-1] == (
-        "extract_keywords",
-        {"text": note["content"], "max_keywords": 8},
-    )
-    [listed] = auth_client.get("/notes").json()["notes"]
-    assert listed["tags"] == []
 
 
 def test_summarize_note_stores_the_ai_summary(auth_client, create_note, fake_ai):
@@ -311,3 +280,57 @@ def test_cannot_link_own_note_to_another_users_note(
 
     assert link(other_auth_client, bob_note["id"], alice_note["id"]).status_code == 404
     assert backlink_ids(auth_client, alice_note["id"]) == []
+
+
+def test_create_note_in_a_course(auth_client, create_course):
+    course = create_course(auth_client)
+
+    response = auth_client.post(
+        "/notes",
+        json={"title": "Mitosis", "content": "Cells split.", "course_id": course["id"]},
+    )
+
+    assert response.status_code == 200
+    note = response.json()
+    assert note["course_id"] == course["id"]
+    assert auth_client.get(f"/notes/{note['id']}").json()["course_id"] == course["id"]
+
+
+def test_create_note_in_another_users_course_returns_404(
+    auth_client, other_auth_client, create_course
+):
+    theirs = create_course(other_auth_client)
+
+    response = auth_client.post(
+        "/notes", json={"title": "Sneaky", "content": "Body", "course_id": theirs["id"]}
+    )
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Course not found"}
+    assert auth_client.get("/notes").json()["notes"] == []
+
+
+def test_list_notes_filters_by_course_and_counts_only_that_course(
+    auth_client, create_course, create_note
+):
+    biology = create_course(auth_client, "Biology")
+    chemistry = create_course(auth_client, "Chemistry")
+    cells = create_note(auth_client, "Cells", "Body", course_id=biology["id"])
+    create_note(auth_client, "Bonds", "Body", course_id=chemistry["id"])
+    create_note(auth_client, "Loose", "Body")
+
+    body = auth_client.get("/notes", params={"course_id": biology["id"]}).json()
+
+    assert [note["id"] for note in body["notes"]] == [cells["id"]]
+    assert body["total"] == 1
+    assert auth_client.get("/notes").json()["total"] == 3
+
+
+def test_list_notes_for_another_users_course_returns_404(
+    auth_client, other_auth_client, create_course
+):
+    theirs = create_course(other_auth_client)
+
+    response = auth_client.get("/notes", params={"course_id": theirs["id"]})
+
+    assert response.status_code == 404

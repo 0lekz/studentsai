@@ -1,5 +1,6 @@
 import uuid
 
+from app.database import create_note as insert_note
 from app.database import upsert_note_similarity
 
 
@@ -10,8 +11,8 @@ def edges(graph: dict) -> set[tuple[str, str, float, str]]:
     }
 
 
-def get_graph(client) -> dict:
-    response = client.get("/graph")
+def get_graph(client, **params) -> dict:
+    response = client.get("/graph", params=params)
     assert response.status_code == 200, response.text
     return response.json()
 
@@ -114,3 +115,53 @@ def test_graph_only_contains_the_callers_notes_and_links(
 
     assert {node["id"] for node in graph["nodes"]} == {note["id"] for note in mine}
     assert graph["connections"] == []
+
+
+def test_graph_includes_every_note_not_only_the_first_hundred(
+    auth_client, user, db_session
+):
+    for n in range(101):
+        insert_note(db_session, f"Note {n}", "Body", uuid.UUID(user.id))
+
+    graph = get_graph(auth_client)
+
+    assert graph["total_nodes"] == 101
+    assert len(graph["nodes"]) == 101
+
+
+def test_graph_for_a_course_only_draws_that_courses_notes_and_edges(
+    auth_client, create_course, create_note, db_session, fake_ai
+):
+    biology = create_course(auth_client, "Biology")
+    cells = create_note(auth_client, "Cells", "Body", course_id=biology["id"])
+    mitosis = create_note(auth_client, "Mitosis", "Body", course_id=biology["id"])
+    loose = create_note(auth_client, "Loose", "Body")
+    for source, target in ((cells, mitosis), (cells, loose)):
+        auth_client.post(
+            f"/notes/{source['id']}/links", params={"target_note_id": target["id"]}
+        )
+    upsert_note_similarity(
+        db_session, uuid.UUID(mitosis["id"]), uuid.UUID(loose["id"]), 0.9
+    )
+
+    graph = get_graph(auth_client, course_id=biology["id"])
+
+    assert {node["id"] for node in graph["nodes"]} == {cells["id"], mitosis["id"]}
+    assert graph["total_nodes"] == 2
+    assert edges(graph) == {(cells["id"], mitosis["id"], 1.0, "manual")}
+    [(_, similarity_args)] = fake_ai.calls
+    assert {str(n["id"]) for n in similarity_args["notes"]} == {
+        cells["id"],
+        mitosis["id"],
+    }
+
+
+def test_graph_for_another_users_course_returns_404(
+    auth_client, other_auth_client, create_course
+):
+    theirs = create_course(other_auth_client)
+
+    response = auth_client.get("/graph", params={"course_id": theirs["id"]})
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Course not found"}

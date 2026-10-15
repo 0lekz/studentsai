@@ -17,7 +17,6 @@ os.environ["SIMILARITY_BACKEND"] = "tfidf"
 os.environ["LLM_PROVIDER"] = "fake"
 
 import ipaddress
-import json
 import socket
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
@@ -27,7 +26,6 @@ from fastapi.testclient import TestClient
 from sqlalchemy import make_url, text
 from sqlalchemy.orm import Session
 
-from app import ai_service as ai_service_module
 from app import email_service, main
 from app.database import Base, engine, get_db
 from app.email_service import create_verification_token
@@ -52,9 +50,6 @@ class RegisteredUser:
 @dataclass
 class FakeAI:
     summary: str = "A short stub summary."
-    keywords: list[str] = field(
-        default_factory=lambda: ["photosynthesis", "chlorophyll", "glucose"]
-    )
     similarities: list[dict] = field(default_factory=list)
     calls: list[tuple[str, dict]] = field(default_factory=list)
 
@@ -76,24 +71,6 @@ class FakeAI:
     def calculate_note_similarities(self, notes: list[dict]) -> list[dict]:
         self.calls.append(("calculate_note_similarities", {"notes": notes}))
         return self.similarities
-
-    def extract_keywords_from_text(self, text: str, max_keywords: int = 12):
-        self.calls.append(
-            ("extract_keywords_from_text", {"text": text, "max_keywords": max_keywords})
-        )
-        return self.keywords[:max_keywords]
-
-    def extract_keywords(self, text: str, max_keywords: int = 12) -> list[str]:
-        self.calls.append(
-            ("extract_keywords", {"text": text, "max_keywords": max_keywords})
-        )
-        return self.keywords[:max_keywords]
-
-    async def evaluate_answer_with_llm(self, prompt: str) -> str:
-        self.calls.append(("evaluate_answer_with_llm", {"prompt": prompt}))
-        return json.dumps(
-            {"score": 85, "quality_rating": 4, "verdict": "correct", "confidence": 88}
-        )
 
 
 @dataclass(frozen=True)
@@ -121,17 +98,10 @@ class FakeMailer:
     async def send_account_deletion_email(self, email: str, confirm_url: str) -> None:
         self.sent.append(SentEmail("account_deletion", email, confirm_url))
 
-    async def send_email_change_verification_step1(
-        self, db, user_id, current_email: str, new_email: str
-    ) -> bool:
-        self.sent.append(SentEmail("email_change_step1", current_email))
-        return True
-
-    async def send_email_change_verification_step2(
-        self, db, user_id, new_email: str
-    ) -> bool:
-        self.sent.append(SentEmail("email_change_step2", new_email))
-        return True
+    async def send_email_change_verification(
+        self, new_email: str, verification_url: str
+    ) -> None:
+        self.sent.append(SentEmail("email_change", new_email, verification_url))
 
     def send_email_via_sendgrid(
         self, to_email: str, subject: str, html_content: str
@@ -187,13 +157,6 @@ def fake_ai(monkeypatch) -> FakeAI:
     monkeypatch.setattr(
         main, "calculate_note_similarities", fake.calculate_note_similarities
     )
-    monkeypatch.setattr(
-        main, "extract_keywords_from_text", fake.extract_keywords_from_text
-    )
-    monkeypatch.setattr(main, "ai_service", fake)
-    monkeypatch.setattr(
-        ai_service_module, "evaluate_answer_with_llm", fake.evaluate_answer_with_llm
-    )
     return fake
 
 
@@ -204,8 +167,7 @@ def fake_mailer(monkeypatch) -> FakeMailer:
         "send_verification_email",
         "send_password_reset_email",
         "send_account_deletion_email",
-        "send_email_change_verification_step1",
-        "send_email_change_verification_step2",
+        "send_email_change_verification",
     ):
         monkeypatch.setattr(main, name, getattr(fake, name))
     monkeypatch.setattr(
@@ -300,13 +262,27 @@ def other_auth_client(client, other_user) -> TestClient:
 
 
 @pytest.fixture
+def create_course() -> Callable[..., dict]:
+    def create(client: TestClient, name: str = "Biology 101", **fields) -> dict:
+        response = client.post("/courses", json={"name": name, **fields})
+        assert response.status_code == 201, response.text
+        return response.json()
+
+    return create
+
+
+@pytest.fixture
 def create_note() -> Callable[..., dict]:
     def create(
         client: TestClient,
         title: str = "Photosynthesis",
         content: str = "Plants convert light energy into chemical energy.",
+        course_id: str | None = None,
     ) -> dict:
-        response = client.post("/notes", json={"title": title, "content": content})
+        payload = {"title": title, "content": content}
+        if course_id is not None:
+            payload["course_id"] = course_id
+        response = client.post("/notes", json=payload)
         assert response.status_code == 200, response.text
         return response.json()
 

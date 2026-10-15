@@ -5,10 +5,13 @@ import pytest
 
 from app import database
 from app.database import (
+    Flashcard,
     FlashcardSRS,
+    apply_flashcard_review,
     create_flashcard,
     create_note,
     create_user,
+    get_due_flashcards_srs,
     get_or_create_srs_entry,
     update_srs_after_review,
 )
@@ -32,7 +35,7 @@ def clock(monkeypatch) -> type[FrozenDatetime]:
 
 
 @pytest.fixture
-def card(db_session) -> tuple:
+def card(db_session, clock) -> tuple:
     user = create_user(db_session, "srs@example.com", username="srs")
     note = create_note(db_session, "Note", "Body", user.id)
     flashcard = create_flashcard(db_session, "Question?", "Answer", note.id, user.id)
@@ -62,6 +65,27 @@ def test_new_entry_starts_with_default_efactor_and_is_due_today(
     assert entry.interval_days == 1
     assert entry.repetitions == 0
     assert entry.due_date == today()
+
+
+def test_a_new_flashcard_is_scheduled_and_due_right_away(db_session, card):
+    flashcard_id, user_id = card
+
+    assert db_session.get(FlashcardSRS, flashcard_id).due_date == today()
+    assert [f.id for f in get_due_flashcards_srs(db_session, user_id)] == [flashcard_id]
+
+
+def test_applying_a_review_counts_it_on_the_card_and_reschedules(
+    db_session, card, clock
+):
+    flashcard = db_session.get(Flashcard, card[0])
+
+    entry = apply_flashcard_review(db_session, flashcard, 5)
+
+    db_session.expire_all()
+    stored = db_session.get(Flashcard, card[0])
+    assert stored.review_count == 1
+    assert stored.last_reviewed == clock.frozen_at
+    assert (entry.repetitions, entry.due_date) == (1, today() + timedelta(days=1))
 
 
 def test_first_successful_review_schedules_one_day_out(review):

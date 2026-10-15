@@ -1,12 +1,20 @@
+import uuid
 from datetime import datetime, timedelta
 
+import pytest
 from jose import jwt
 
 from app.auth import create_access_token
 from app.config import settings
-from app.email_service import create_password_reset_token, create_verification_token
+from app.email_service import (
+    create_email_change_token,
+    create_password_reset_token,
+    create_verification_token,
+)
 
 ME = "/api/settings/profile"
+CHANGE_LINK_PREFIX = "http://localhost:3000/verify-email-change/"
+NEW_EMAIL = "alice.new@example.com"
 
 
 def bearer(token: str) -> dict[str, str]:
@@ -27,7 +35,7 @@ def register(
     )
 
 
-def test_register_returns_a_token_for_an_unverified_free_user(client):
+def test_register_returns_a_token_for_an_unverified_user(client):
     response = register(client)
 
     assert response.status_code == 200
@@ -38,7 +46,7 @@ def test_register_returns_a_token_for_an_unverified_free_user(client):
     assert body["user"]["username"] == "carol"
     assert body["user"]["verified"] is False
     assert body["user"]["has_password"] is True
-    assert body["user"]["plan"] == "free"
+    assert "plan" not in body["user"]
 
 
 def test_register_emails_a_verification_link_that_verifies_the_account(
@@ -294,3 +302,163 @@ def test_reset_password_replaces_the_password_used_for_login(client, user):
     )
     assert old_login.status_code == 401
     assert new_login.status_code == 200
+
+
+def test_malformed_verification_token_returns_400(client):
+    assert client.post("/auth/verify-email", json={"token": "x"}).status_code == 400
+    assert client.get("/auth/verify/not-a-jwt").status_code == 400
+
+
+def test_malformed_password_reset_token_returns_400(client):
+    response = client.post(
+        "/auth/reset-password", json={"token": "x", "new_password": "brand-new-pass"}
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Invalid or expired token"}
+
+
+def request_email_change(client, user, new_email=NEW_EMAIL):
+    return client.post(
+        "/auth/send-email-change-verification",
+        headers=user.auth_header,
+        json={"new_email": new_email},
+    )
+
+
+def change_token(fake_mailer, address: str) -> str:
+    [email] = [sent for sent in fake_mailer.to(address) if sent.kind == "email_change"]
+    assert email.link.startswith(CHANGE_LINK_PREFIX)
+    return email.link.removeprefix(CHANGE_LINK_PREFIX)
+
+
+def confirm_email_change(client, token: str):
+    return client.post("/auth/verify-email-change", json={"token": token})
+
+
+def test_email_change_emails_a_link_to_the_new_address_only(client, user, fake_mailer):
+    response = request_email_change(client, user)
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "message": "Verification email sent to your new email address",
+        "data": None,
+    }
+    change_token(fake_mailer, NEW_EMAIL)
+    assert [sent.kind for sent in fake_mailer.to(user.email)] == ["verification"]
+    assert client.get(ME, headers=user.auth_header).json()["email"] == user.email
+
+
+def test_confirming_an_email_change_switches_the_address(client, user, fake_mailer):
+    request_email_change(client, user)
+
+    response = confirm_email_change(client, change_token(fake_mailer, NEW_EMAIL))
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["message"] == "Email address updated successfully"
+    assert body["verified"] is True
+    assert token_subject(body["access_token"]) == NEW_EMAIL
+    me = client.get(ME, headers=bearer(body["access_token"])).json()
+    assert (me["id"], me["email"], me["verified"]) == (user.id, NEW_EMAIL, True)
+    assert client.get(ME, headers=user.auth_header).status_code == 401
+    login = client.post(
+        "/auth/login", json={"email": NEW_EMAIL, "password": user.password}
+    )
+    assert login.status_code == 200
+
+
+def test_confirming_the_same_email_change_twice_is_harmless(client, user, fake_mailer):
+    request_email_change(client, user)
+    token = change_token(fake_mailer, NEW_EMAIL)
+    confirm_email_change(client, token)
+
+    response = confirm_email_change(client, token)
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "message": "Email address already updated",
+        "verified": True,
+        "access_token": None,
+    }
+
+
+def test_an_email_change_link_is_stale_once_another_change_went_through(
+    client, user, fake_mailer
+):
+    request_email_change(client, user, "first@example.com")
+    request_email_change(client, user, "second@example.com")
+    first = change_token(fake_mailer, "first@example.com")
+    second = change_token(fake_mailer, "second@example.com")
+
+    assert confirm_email_change(client, second).status_code == 200
+    response = confirm_email_change(client, first)
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Invalid or expired verification token"}
+
+
+def test_email_change_to_an_address_in_use_returns_400(
+    client, user, other_user, fake_mailer
+):
+    response = request_email_change(client, user, other_user.email)
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": "Email address is already in use by another account"
+    }
+    assert [sent.kind for sent in fake_mailer.to(other_user.email)] == ["verification"]
+
+
+def test_email_change_to_the_current_address_returns_400(client, user):
+    response = request_email_change(client, user, user.email)
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "This is already your email address"}
+
+
+def test_email_change_to_an_invalid_address_returns_422(client, user):
+    assert request_email_change(client, user, "not-an-email").status_code == 422
+
+
+def test_confirming_an_email_change_after_the_address_was_taken_returns_400(
+    client, user, register_user, fake_mailer
+):
+    request_email_change(client, user)
+    token = change_token(fake_mailer, NEW_EMAIL)
+    register_user(NEW_EMAIL, "carol")
+
+    response = confirm_email_change(client, token)
+
+    assert response.status_code == 400
+    assert client.get(ME, headers=user.auth_header).json()["email"] == user.email
+
+
+@pytest.mark.parametrize(
+    "token",
+    ["not-a-jwt", create_verification_token(NEW_EMAIL)],
+    ids=["malformed", "other-token-type"],
+)
+def test_confirming_an_email_change_with_an_invalid_token_returns_400(client, token):
+    response = confirm_email_change(client, token)
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Invalid or expired verification token"}
+
+
+def test_confirming_an_email_change_for_a_deleted_user_returns_404(client):
+    token = create_email_change_token(uuid.uuid4(), "gone@example.com", NEW_EMAIL)
+
+    assert confirm_email_change(client, token).status_code == 404
+
+
+def test_profile_update_cannot_change_the_email_without_verification(client, user):
+    response = client.patch(
+        ME, headers=user.auth_header, json={"email": NEW_EMAIL, "username": "alicia"}
+    )
+
+    assert response.status_code == 200
+    assert (response.json()["email"], response.json()["username"]) == (
+        user.email,
+        "alicia",
+    )

@@ -4,10 +4,8 @@ Database configuration and models for StudentsAI MVP
 
 import uuid
 from datetime import UTC, datetime, timedelta
-from typing import Any
 
 from sqlalchemy import (
-    JSON,
     Boolean,
     Column,
     Date,
@@ -19,15 +17,12 @@ from sqlalchemy import (
     create_engine,
     or_,
 )
-from sqlalchemy import text as sql_text
 from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session, relationship, sessionmaker
 from sqlalchemy.sql import func
 
 from .config import DATABASE_URL
-
-REVIEW_TYPES = {"NOTE_REVIEWED", "FLASHCARD_REVIEWED"}
 
 # Database engine and session
 engine = create_engine(DATABASE_URL, echo=False)
@@ -48,7 +43,6 @@ class User(Base):
     verified = Column(
         Boolean, default=False, nullable=False
     )  # NEW: Email verification status
-    plan = Column(String(20), nullable=False, default="free")  # 'free' or 'pro'
 
     # OAuth fields (NEW)
     oauth_provider = Column(String(50), nullable=True)  # 'google', 'apple', etc.
@@ -68,26 +62,6 @@ class User(Base):
     )
 
 
-class PendingEmailChange(Base):
-    """Model for tracking pending email change requests"""
-
-    __tablename__ = "pending_email_changes"
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(
-        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
-    )
-    current_email = Column(String(255), nullable=False)
-    new_email = Column(String(255), nullable=False)
-    current_email_verified = Column(Boolean, default=False, nullable=False)
-    new_email_verified = Column(Boolean, default=False, nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    expires_at = Column(DateTime(timezone=True), nullable=False)
-
-    # Relationships
-    user = relationship("User")
-
-
 class Note(Base):
     """Note model for storing user notes"""
 
@@ -104,8 +78,16 @@ class Note(Base):
     # Tags for keywords
     tags = Column(ARRAY(String), nullable=True, default=list)
 
-    # Foreign key
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    # Foreign keys
+    user_id = Column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    course_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("courses.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
 
     # Relationships
     user = relationship("User", back_populates="notes")
@@ -121,10 +103,16 @@ class NoteLink(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     from_note_id = Column(
-        UUID(as_uuid=True), ForeignKey("notes.id"), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("notes.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     to_note_id = Column(
-        UUID(as_uuid=True), ForeignKey("notes.id"), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("notes.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     link_type = Column(String(50), nullable=False, default="manual")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -140,10 +128,16 @@ class NoteSimilarity(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     note_a_id = Column(
-        UUID(as_uuid=True), ForeignKey("notes.id"), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("notes.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     note_b_id = Column(
-        UUID(as_uuid=True), ForeignKey("notes.id"), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("notes.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     similarity = Column(
         Integer, nullable=False
@@ -153,28 +147,8 @@ class NoteSimilarity(Base):
     )
 
 
-class Event(Base):
-    """User activity events used for stats and heatmaps.
-
-    All timestamps are stored in UTC (timezone-aware) and all aggregation uses UTC day boundaries.
-    """
-
-    __tablename__ = "events"
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(
-        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
-    )
-    event_type = Column(String(50), nullable=False, index=True)
-    occurred_at = Column(
-        DateTime(timezone=True), nullable=False, index=True, server_default=func.now()
-    )
-    target_id = Column(UUID(as_uuid=True), nullable=True, index=True)
-    event_metadata = Column("metadata", JSON, nullable=True)
-
-
 class Flashcard(Base):
-    """Enhanced flashcard model for spaced repetition and contextual learning"""
+    """A question and answer generated from a note, scheduled by `FlashcardSRS`"""
 
     __tablename__ = "flashcards"
 
@@ -183,31 +157,25 @@ class Flashcard(Base):
     answer = Column(Text, nullable=False)
     difficulty = Column(Integer, default=1)  # 1-5 scale
     last_reviewed = Column(DateTime(timezone=True), nullable=True)
-    next_review = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-    # New fields for enhanced functionality
     tags = Column(
         ARRAY(String), nullable=True, default=list
     )  # e.g., ["visit_later", "revisited", "recently_learned"]
-    review_count = Column(Integer, default=0)  # How many times reviewed
-    mastery_level = Column(Integer, default=0)  # 0-100, calculated from performance
-    last_performance = Column(Integer, nullable=True)  # Last review score (0-100)
-    flashcard_type = Column(
-        String(50), default="single_note"
-    )  # "single_note" or "contextual"
-    context_notes = Column(
-        ARRAY(UUID(as_uuid=True)), nullable=True
-    )  # For contextual flashcards
-    user_answer_history = Column(
-        JSON, nullable=True
-    )  # Store recent user answers for analysis
+    review_count = Column(Integer, default=0)
 
-    # Foreign key
-    note_id = Column(UUID(as_uuid=True), ForeignKey("notes.id"), nullable=False)
+    # Foreign keys
+    note_id = Column(
+        UUID(as_uuid=True), ForeignKey("notes.id", ondelete="CASCADE"), nullable=False
+    )
     user_id = Column(
-        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
-    )  # Direct user association
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    course_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("courses.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
 
     # Relationships
     note = relationship("Note", back_populates="flashcards")
@@ -220,9 +188,13 @@ class FlashcardSRS(Base):
     __tablename__ = "flashcard_srs"
 
     flashcard_id = Column(
-        UUID(as_uuid=True), ForeignKey("flashcards.id"), primary_key=True
+        UUID(as_uuid=True),
+        ForeignKey("flashcards.id", ondelete="CASCADE"),
+        primary_key=True,
     )
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    user_id = Column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
     efactor = Column(Integer, default=250)  # E-Factor * 100 (2.5 -> 250)
     interval_days = Column(Integer, default=1)
     due_date = Column(Date, nullable=False)
@@ -237,58 +209,22 @@ class FlashcardSRS(Base):
 
 
 class FlashcardSet(Base):
-    """Track context bundles for contextual flashcards"""
+    """One generation run of flashcards from a seed note"""
 
     __tablename__ = "flashcard_sets"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    mode = Column(String(20), nullable=False)  # 'single' or 'context'
-    seed_note_id = Column(UUID(as_uuid=True), ForeignKey("notes.id"), nullable=False)
-    neighbor_note_ids = Column(ARRAY(UUID(as_uuid=True)), nullable=True)
+    user_id = Column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    seed_note_id = Column(
+        UUID(as_uuid=True), ForeignKey("notes.id", ondelete="CASCADE"), nullable=False
+    )
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # Relationships
     user = relationship("User")
     seed_note = relationship("Note")
-
-
-class FlashcardReview(Base):
-    """Detailed review data for answer evaluation and feedback"""
-
-    __tablename__ = "flashcard_reviews"
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    flashcard_id = Column(
-        UUID(as_uuid=True), ForeignKey("flashcards.id"), nullable=False
-    )
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    typed_answer = Column(Text, nullable=False)
-    ai_score = Column(Integer, nullable=True)  # 0-100 score from LLM
-    verdict = Column(String(20), nullable=True)  # 'correct', 'partial', 'incorrect'
-    feedback = Column(Text, nullable=True)
-    missing_points = Column(ARRAY(String), nullable=True)
-    confidence = Column(Integer, nullable=True)  # 0-100 confidence from LLM
-    reviewed_at = Column(DateTime(timezone=True), server_default=func.now())
-
-    # Relationships
-    flashcard = relationship("Flashcard")
-    user = relationship("User")
-
-
-class ActivityDaily(Base):
-    """Pre-aggregated daily activity counts for efficient profile queries.
-
-    Primary key: (user_id, day, kind)
-    kind in {"all", "notes", "flashcards"}
-    """
-
-    __tablename__ = "activity_daily"
-
-    user_id = Column(UUID(as_uuid=True), primary_key=True)
-    day = Column(Date, primary_key=True)
-    kind = Column(String(16), primary_key=True)
-    count = Column(Integer, nullable=False, default=0)
 
 
 # Database dependency
@@ -305,80 +241,6 @@ def get_db() -> Session:
 def create_tables():
     """Create all database tables"""
     Base.metadata.create_all(bind=engine)
-    # Ensure new columns exist in dev without full migration
-    try:
-        with engine.connect() as conn:
-            # Add username column if missing (PostgreSQL)
-            conn.execute(
-                sql_text(
-                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS username VARCHAR(50)"
-                )
-            )
-            # Add tags column if missing (PostgreSQL)
-            conn.execute(
-                sql_text("ALTER TABLE notes ADD COLUMN IF NOT EXISTS tags TEXT[]")
-            )
-            # Create events table if missing (dev convenience; use Alembic in prod)
-            conn.execute(
-                sql_text(
-                    """
-                CREATE TABLE IF NOT EXISTS events (
-                  id UUID PRIMARY KEY,
-                  user_id UUID NOT NULL,
-                  event_type VARCHAR(50) NOT NULL,
-                  occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                  target_id UUID NULL,
-                  metadata JSON NULL
-                );
-                CREATE INDEX IF NOT EXISTS idx_events_user ON events(user_id);
-                CREATE INDEX IF NOT EXISTS idx_events_type ON events(event_type);
-                CREATE INDEX IF NOT EXISTS idx_events_occurred ON events(occurred_at);
-                """
-                )
-            )
-            # Similarities table (dev convenience)
-            conn.execute(
-                sql_text(
-                    """
-                    CREATE TABLE IF NOT EXISTS note_similarities (
-                      id UUID PRIMARY KEY,
-                      note_a_id UUID NOT NULL,
-                      note_b_id UUID NOT NULL,
-                      similarity INTEGER NOT NULL,
-                      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-                    );
-                    CREATE INDEX IF NOT EXISTS idx_sim_a ON note_similarities(note_a_id);
-                    CREATE INDEX IF NOT EXISTS idx_sim_b ON note_similarities(note_b_id);
-                    """
-                )
-            )
-            # Activity daily aggregate (dev convenience)
-            conn.execute(
-                sql_text(
-                    """
-                    CREATE TABLE IF NOT EXISTS activity_daily (
-                      user_id UUID NOT NULL,
-                      day DATE NOT NULL,
-                      kind VARCHAR(16) NOT NULL,
-                      count INTEGER NOT NULL DEFAULT 0,
-                      PRIMARY KEY(user_id, day, kind)
-                    );
-                    """
-                )
-            )
-            # Helpful composite indexes for events queries
-            conn.execute(
-                Text(
-                    """
-                    CREATE INDEX IF NOT EXISTS idx_events_user_day ON events(user_id, occurred_at DESC);
-                    CREATE INDEX IF NOT EXISTS idx_events_user_type_day ON events(user_id, event_type, occurred_at DESC);
-                    """
-                )
-            )
-            conn.commit()
-    except Exception:
-        # Best-effort; ignore if not supported or already present
-        pass
 
 
 def drop_tables():
@@ -499,11 +361,28 @@ def update_user_profile(db: Session, user_id: uuid.UUID, **kwargs) -> User | Non
     return user
 
 
-def get_notes_by_user(db: Session, user_id: uuid.UUID, skip: int = 0, limit: int = 100):
-    """Get notes for a user"""
-    return (
-        db.query(Note).filter(Note.user_id == user_id).offset(skip).limit(limit).all()
-    )
+def _notes_of(db: Session, user_id: uuid.UUID, course_id: uuid.UUID | None):
+    query = db.query(Note).filter(Note.user_id == user_id)
+    if course_id is not None:
+        query = query.filter(Note.course_id == course_id)
+    return query
+
+
+def get_notes_by_user(
+    db: Session,
+    user_id: uuid.UUID,
+    skip: int = 0,
+    limit: int | None = None,
+    course_id: uuid.UUID | None = None,
+) -> list[Note]:
+    """Get a user's notes, optionally one course's, all of them unless a limit is given"""
+    return _notes_of(db, user_id, course_id).offset(skip).limit(limit).all()
+
+
+def count_notes_by_user(
+    db: Session, user_id: uuid.UUID, course_id: uuid.UUID | None = None
+) -> int:
+    return _notes_of(db, user_id, course_id).count()
 
 
 def get_notes_by_titles(
@@ -525,9 +404,15 @@ def get_note_by_id(db: Session, note_id: uuid.UUID, user_id: uuid.UUID) -> Note 
     return db.query(Note).filter(Note.id == note_id, Note.user_id == user_id).first()
 
 
-def create_note(db: Session, title: str, content: str, user_id: uuid.UUID) -> Note:
+def create_note(
+    db: Session,
+    title: str,
+    content: str,
+    user_id: uuid.UUID,
+    course_id: uuid.UUID | None = None,
+) -> Note:
     """Create new note"""
-    note = Note(title=title, content=content, user_id=user_id)
+    note = Note(title=title, content=content, user_id=user_id, course_id=course_id)
     db.add(note)
     db.commit()
     db.refresh(note)
@@ -600,160 +485,22 @@ def create_flashcard(
     answer: str,
     note_id: uuid.UUID,
     user_id: uuid.UUID,
-    flashcard_type: str = "single_note",
+    course_id: uuid.UUID | None = None,
 ) -> Flashcard:
-    """Create new flashcard"""
+    """Create a flashcard, due for review today"""
     flashcard = Flashcard(
         question=question,
         answer=answer,
         note_id=note_id,
         user_id=user_id,
-        flashcard_type=flashcard_type,
+        course_id=course_id,
     )
     db.add(flashcard)
+    db.flush()
+    db.add(_new_srs_entry(flashcard.id, user_id))
     db.commit()
     db.refresh(flashcard)
     return flashcard
-
-
-# Event utilities
-def record_event(
-    db: Session,
-    user_id: uuid.UUID,
-    event_type: str,
-    target_id: uuid.UUID | None = None,
-    metadata: dict[str, Any] | None = None,
-    occurred_at: datetime | None = None,
-):
-    from .database import Event  # local import to avoid circular in type hints
-
-    ts = occurred_at or datetime.now(UTC)
-    event = Event(
-        user_id=user_id,
-        event_type=event_type,
-        occurred_at=ts,
-        target_id=target_id,
-        metadata=metadata or {},
-    )
-    db.add(event)
-    db.commit()
-    return event
-
-
-def get_recent_events(db: Session, user_id: uuid.UUID, limit: int = 10):
-    return (
-        db.query(Event)
-        .filter(Event.user_id == user_id)
-        .order_by(Event.occurred_at.desc())
-        .limit(limit)
-        .all()
-    )
-
-
-def get_totals(db: Session, user_id: uuid.UUID):
-    from sqlalchemy import func as _func
-
-    from .database import Event
-
-    totals = (
-        db.query(Event.event_type, _func.count())
-        .filter(Event.user_id == user_id)
-        .group_by(Event.event_type)
-        .all()
-    )
-    as_map = {k: v for k, v in totals}
-    return {
-        "notes_created": int(as_map.get("NOTE_CREATED", 0)),
-        "notes_reviewed": int(as_map.get("NOTE_REVIEWED", 0)),
-        "flashcards_created": int(as_map.get("FLASHCARD_CREATED", 0)),
-        "flashcards_reviewed": int(as_map.get("FLASHCARD_REVIEWED", 0)),
-    }
-
-
-def get_activity_counts(
-    db: Session,
-    user_id: uuid.UUID,
-    from_date_utc: datetime,
-    to_date_utc: datetime,
-    kind: str = "all",
-):
-    from sqlalchemy import func as _func
-
-    from .database import Event
-
-    q = db.query(
-        _func.date_trunc("day", Event.occurred_at).label("day"),
-        _func.count().label("count"),
-        _func.mode().within_group(Event.event_type).label("top_type"),
-    ).filter(
-        Event.user_id == user_id,
-        Event.occurred_at >= from_date_utc,
-        Event.occurred_at <= to_date_utc,  # Changed from < to <= to include end date
-    )
-
-    if kind == "notes":
-        q = q.filter(Event.event_type.in_(["NOTE_CREATED", "NOTE_REVIEWED"]))
-    elif kind == "flashcards":
-        q = q.filter(Event.event_type.in_(["FLASHCARD_CREATED", "FLASHCARD_REVIEWED"]))
-    # For "all" kind, don't filter by event type - include everything
-
-    rows = q.group_by("day").order_by("day").all()
-    return rows
-
-
-def compute_streaks(db: Session, user_id: uuid.UUID):
-    from sqlalchemy import func as _func
-
-    from .database import Event
-
-    rows = (
-        db.query(_func.date_trunc("day", Event.occurred_at).label("day"), _func.count())
-        .filter(
-            Event.user_id == user_id,
-            # Include ALL activity types for streak calculation, not just reviews
-            Event.event_type.in_(
-                [
-                    "NOTE_CREATED",
-                    "NOTE_REVIEWED",
-                    "NOTE_UPDATED",
-                    "FLASHCARD_CREATED",
-                    "FLASHCARD_REVIEWED",
-                    "FLASHCARD_UPDATED",
-                    "FLASHCARD_TAGGED",
-                ]
-            ),
-        )
-        .group_by("day")
-        .order_by("day")
-        .all()
-    )
-    # Compute current and best streak in Python using UTC days
-    days = [r[0].date() for r in rows]
-    if not days:
-        return 0, 0
-    days_set = set(days)
-    from datetime import timedelta
-
-    today = datetime.now(UTC).date()
-    # current streak
-    cur = 0
-    d = today
-    while d in days_set:
-        cur += 1
-        d -= timedelta(days=1)
-    # best streak
-    best = 0
-    start = min(days_set)
-    d = start
-    run = 0
-    while d <= today:
-        if d in days_set:
-            run += 1
-            best = max(best, run)
-        else:
-            run = 0
-        d += timedelta(days=1)
-    return cur, best
 
 
 # Backlinks and tags helpers
@@ -829,8 +576,6 @@ def upsert_note_similarity(
     similarity_float: float,
 ):
     """Store similarity scaled to 0..1000. Order ids to keep uniqueness."""
-    from .database import NoteSimilarity
-
     a, b = (
         (note_a_id, note_b_id)
         if str(note_a_id) < str(note_b_id)
@@ -852,8 +597,6 @@ def upsert_note_similarity(
 
 
 def get_similarities_for_notes(db: Session, note_ids: list[uuid.UUID]):
-    from .database import NoteSimilarity
-
     if not note_ids:
         return []
     return (
@@ -866,15 +609,29 @@ def get_similarities_for_notes(db: Session, note_ids: list[uuid.UUID]):
     )
 
 
-# Enhanced flashcard functions
+# Flashcard functions
+def get_user_flashcard(
+    db: Session, flashcard_id: uuid.UUID, user_id: uuid.UUID
+) -> Flashcard | None:
+    return (
+        db.query(Flashcard)
+        .filter(Flashcard.id == flashcard_id, Flashcard.user_id == user_id)
+        .first()
+    )
+
+
 def get_user_flashcards(
     db: Session,
     user_id: uuid.UUID,
     tags: list[str] | None = None,
     search: str | None = None,
+    course_id: uuid.UUID | None = None,
 ) -> list[Flashcard]:
-    """Get all flashcards for a user, optionally filtered by tags and search query"""
+    """Get all flashcards for a user, optionally filtered by course, tags and search query"""
     query = db.query(Flashcard).filter(Flashcard.user_id == user_id)
+
+    if course_id is not None:
+        query = query.filter(Flashcard.course_id == course_id)
 
     # Filter by tags if provided
     if tags:
@@ -890,9 +647,7 @@ def get_user_flashcards(
             )
         )
 
-    return query.order_by(
-        Flashcard.next_review.asc().nullslast(), Flashcard.created_at.desc()
-    ).all()
+    return query.order_by(Flashcard.created_at.desc()).all()
 
 
 def get_flashcards_by_tag(db: Session, user_id: uuid.UUID, tag: str) -> list[Flashcard]:
@@ -904,137 +659,51 @@ def get_flashcards_by_tag(db: Session, user_id: uuid.UUID, tag: str) -> list[Fla
     )
 
 
-def update_flashcard_progress(
-    db: Session, flashcard_id: uuid.UUID, performance_score: int, user_answer: str
+def add_flashcard_tag(
+    db: Session, flashcard_id: uuid.UUID, user_id: uuid.UUID, tag: str
 ) -> Flashcard:
-    """Update flashcard progress after review"""
-    flashcard = db.query(Flashcard).filter(Flashcard.id == flashcard_id).first()
+    """Add a tag to one of the user's flashcards"""
+    flashcard = get_user_flashcard(db, flashcard_id, user_id)
     if not flashcard:
         raise ValueError("Flashcard not found")
 
-    # Update progress
-    flashcard.review_count += 1
-    flashcard.last_reviewed = datetime.now(UTC)
-    flashcard.last_performance = performance_score
-
-    # Calculate new mastery level (simple algorithm - can be improved)
-    if performance_score >= 80:
-        flashcard.mastery_level = min(100, flashcard.mastery_level + 20)
-        # Mark as recently learned if mastery is high
-        if flashcard.mastery_level >= 80 and "recently_learned" not in flashcard.tags:
-            flashcard.tags = [*flashcard.tags, "recently_learned"]
-    elif performance_score < 50:
-        flashcard.mastery_level = max(0, flashcard.mastery_level - 10)
-        # Remove recently learned tag if performance drops
-        if "recently_learned" in flashcard.tags:
-            flashcard.tags = [
-                tag for tag in flashcard.tags if tag != "recently_learned"
-            ]
-
-    # Update next review date based on performance
-    if performance_score >= 80:
-        # Good performance - review later
-        days_until_review = min(30, flashcard.review_count * 2)
-        flashcard.next_review = datetime.now(UTC) + timedelta(days=days_until_review)
-    else:
-        # Poor performance - review soon
-        flashcard.next_review = datetime.now(UTC) + timedelta(days=1)
-
-    # Store user answer history
-    if not flashcard.user_answer_history:
-        flashcard.user_answer_history = {}
-
-    flashcard.user_answer_history[str(datetime.now(UTC))] = {
-        "answer": user_answer,
-        "score": performance_score,
-        "mastery": flashcard.mastery_level,
-    }
-
-    # Keep only last 10 answers
-    if len(flashcard.user_answer_history) > 10:
-        # Remove oldest entries
-        sorted_keys = sorted(flashcard.user_answer_history.keys())
-        for key in sorted_keys[:-10]:
-            del flashcard.user_answer_history[key]
-
-    db.commit()
-    db.refresh(flashcard)
-    return flashcard
-
-
-def add_flashcard_tag(db: Session, flashcard_id: uuid.UUID, tag: str) -> Flashcard:
-    """Add a tag to a flashcard"""
-    flashcard = db.query(Flashcard).filter(Flashcard.id == flashcard_id).first()
-    if not flashcard:
-        raise ValueError("Flashcard not found")
-
-    if not flashcard.tags:
-        flashcard.tags = []
-
-    if tag not in flashcard.tags:
-        flashcard.tags.append(tag)
+    current = flashcard.tags or []
+    if tag not in current:
+        flashcard.tags = [*current, tag]
         db.commit()
         db.refresh(flashcard)
 
     return flashcard
 
 
-def remove_flashcard_tag(db: Session, flashcard_id: uuid.UUID, tag: str) -> Flashcard:
-    """Remove a tag from a flashcard"""
-    flashcard = db.query(Flashcard).filter(Flashcard.id == flashcard_id).first()
+def remove_flashcard_tag(
+    db: Session, flashcard_id: uuid.UUID, user_id: uuid.UUID, tag: str
+) -> Flashcard:
+    """Remove a tag from one of the user's flashcards"""
+    flashcard = get_user_flashcard(db, flashcard_id, user_id)
     if not flashcard:
         raise ValueError("Flashcard not found")
 
     if flashcard.tags and tag in flashcard.tags:
-        flashcard.tags.remove(tag)
+        flashcard.tags = [existing for existing in flashcard.tags if existing != tag]
         db.commit()
         db.refresh(flashcard)
 
     return flashcard
 
 
-def get_due_flashcards(
-    db: Session, user_id: uuid.UUID, limit: int = 20
-) -> list[Flashcard]:
-    """Get flashcards that are due for review"""
-    now = datetime.now(UTC)
-    return (
-        db.query(Flashcard)
-        .filter(
-            Flashcard.user_id == user_id,
-            (Flashcard.next_review.is_(None) | (Flashcard.next_review <= now)),
-        )
-        .order_by(Flashcard.next_review.asc().nullslast())
-        .limit(limit)
-        .all()
-    )
-
-
-def create_contextual_flashcard(
-    db: Session,
-    question: str,
-    answer: str,
-    note_id: uuid.UUID,
-    user_id: uuid.UUID,
-    context_notes: list[uuid.UUID],
-) -> Flashcard:
-    """Create a contextual flashcard with multiple note context"""
-    flashcard = Flashcard(
-        question=question,
-        answer=answer,
-        note_id=note_id,
-        user_id=user_id,
-        flashcard_type="contextual",
-        context_notes=context_notes,
-        tags=["contextual"],
-    )
-    db.add(flashcard)
-    db.commit()
-    db.refresh(flashcard)
-    return flashcard
-
-
 # SRS Engine Functions (SM-2-lite algorithm)
+def _new_srs_entry(flashcard_id: uuid.UUID, user_id: uuid.UUID) -> FlashcardSRS:
+    return FlashcardSRS(
+        flashcard_id=flashcard_id,
+        user_id=user_id,
+        efactor=250,  # 2.5 * 100
+        interval_days=1,
+        due_date=datetime.now(UTC).date(),
+        repetitions=0,
+    )
+
+
 def get_or_create_srs_entry(
     db: Session, flashcard_id: uuid.UUID, user_id: uuid.UUID
 ) -> FlashcardSRS:
@@ -1044,15 +713,7 @@ def get_or_create_srs_entry(
     )
 
     if not srs_entry:
-        # Create new SRS entry with defaults
-        srs_entry = FlashcardSRS(
-            flashcard_id=flashcard_id,
-            user_id=user_id,
-            efactor=250,  # 2.5 * 100
-            interval_days=1,
-            due_date=datetime.now(UTC).date(),
-            repetitions=0,
-        )
+        srs_entry = _new_srs_entry(flashcard_id, user_id)
         db.add(srs_entry)
         db.commit()
         db.refresh(srs_entry)
@@ -1104,6 +765,15 @@ def update_srs_after_review(
     return srs_entry
 
 
+def apply_flashcard_review(
+    db: Session, flashcard: Flashcard, quality: int
+) -> FlashcardSRS:
+    """Count the review on the card and reschedule it with SM-2"""
+    flashcard.review_count = (flashcard.review_count or 0) + 1
+    flashcard.last_reviewed = datetime.now(UTC)
+    return update_srs_after_review(db, flashcard.id, flashcard.user_id, quality)
+
+
 def get_due_flashcards_srs(
     db: Session, user_id: uuid.UUID, limit: int = 20
 ) -> list[Flashcard]:
@@ -1137,19 +807,10 @@ def get_due_flashcards_srs(
 
 
 def create_flashcard_set(
-    db: Session,
-    user_id: uuid.UUID,
-    mode: str,
-    seed_note_id: uuid.UUID,
-    neighbor_note_ids: list[uuid.UUID] | None = None,
+    db: Session, user_id: uuid.UUID, seed_note_id: uuid.UUID
 ) -> FlashcardSet:
-    """Create a flashcard set to track context bundles"""
-    flashcard_set = FlashcardSet(
-        user_id=user_id,
-        mode=mode,
-        seed_note_id=seed_note_id,
-        neighbor_note_ids=neighbor_note_ids or [],
-    )
+    """Record one generation run from a seed note"""
+    flashcard_set = FlashcardSet(user_id=user_id, seed_note_id=seed_note_id)
     db.add(flashcard_set)
     db.commit()
     db.refresh(flashcard_set)
@@ -1195,3 +856,7 @@ def archive_mastered_flashcards(
 
     db.commit()
     return flashcards
+
+
+# Registers the models declared under app/models on Base.metadata.
+import app.models  # noqa: E402, F401

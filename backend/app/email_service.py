@@ -10,7 +10,6 @@ from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 
 from .config import settings
-from .database import Session, get_user_by_id
 
 
 def get_sendgrid_client():
@@ -76,9 +75,7 @@ def verify_password_reset_token(token: str) -> str | None:
         if payload.get("type") != "password_reset":
             return None
         return payload.get("email")
-    except jwt.ExpiredSignatureError:
-        return None
-    except jwt.JWTError:
+    except jwt.InvalidTokenError:
         return None
 
 
@@ -94,9 +91,7 @@ def verify_verification_token(token: str) -> str | None:
             return None
 
         return payload.get("email")
-    except jwt.ExpiredSignatureError:
-        return None
-    except jwt.JWTError:
+    except jwt.InvalidTokenError:
         return None
 
 
@@ -455,128 +450,54 @@ async def send_account_deletion_email(email: str, confirm_url: str):
         raise
 
 
-async def send_email_change_verification_step1(
-    db: Session, user_id: uuid.UUID, current_email: str, new_email: str
-) -> bool:
-    """Step 1: Send verification to current email to confirm ownership"""
-    try:
-        # Create verification token for current email
-        token_data = {
-            "sub": current_email,
-            "new_email": new_email,
-            "user_id": str(user_id),
-            "type": "email_change_step1",
-            "exp": datetime.utcnow()
-            + timedelta(minutes=settings.verification_token_expire_minutes),
-        }
-
-        token = jwt.encode(
-            token_data, settings.secret_key, algorithm=settings.algorithm
-        )
-
-        # Create pending email change record
-        from .database import PendingEmailChange
-
-        pending_change = PendingEmailChange(
-            user_id=user_id,
-            current_email=current_email,
-            new_email=new_email,
-            expires_at=datetime.utcnow() + timedelta(hours=24),  # 24 hour expiry
-        )
-        db.add(pending_change)
-        db.commit()
-
-        # Send verification email to current email
-        verification_url = f"{settings.frontend_url}/verify-email-change-step1/{token}?new_email={new_email}"
-
-        html_content = f"""
-            <html>
-                <body>
-                    <h2>Email Change Request</h2>
-                    <p>You have requested to change your email address from <strong>{current_email}</strong> to <strong>{new_email}</strong>.</p>
-                    <p>To confirm this change, please click the link below:</p>
-                    <p><a href="{verification_url}">Confirm Email Change</a></p>
-                    <p>This link will expire in {settings.verification_token_expire_minutes} minutes.</p>
-                    <p>If you did not request this change, please ignore this email.</p>
-                </body>
-            </html>
-            """
-
-        success = send_email_via_sendgrid(
-            to_email=current_email,
-            subject="Confirm Email Change Request",
-            html_content=html_content,
-        )
-
-        if not success:
-            raise Exception("SendGrid email sending failed")
-        return True
-
-    except Exception as e:
-        db.rollback()
-        if settings.debug:
-            print(f"Error sending email change verification step 1: {e}")
-        return False
-
-
-async def send_email_change_verification_step2(
-    db: Session, user_id: uuid.UUID, new_email: str
-) -> bool:
-    """Step 2: Send verification to new email after current email is verified"""
-    try:
-        # Create verification token for new email
-        token_data = {
-            "sub": new_email,
-            "user_id": str(user_id),
-            "type": "email_change_step2",
-            "exp": datetime.utcnow()
-            + timedelta(minutes=settings.verification_token_expire_minutes),
-        }
-
-        token = jwt.encode(
-            token_data, settings.secret_key, algorithm=settings.algorithm
-        )
-
-        # Send verification email to new email
-        verification_url = f"{settings.frontend_url}/verify-email-change-step2/{token}?current_email={get_user_by_id(db, user_id).email}"
-
-        html_content = f"""
-            <html>
-                <body>
-                    <h2>Verify New Email Address</h2>
-                    <p>You have requested to change your email address to <strong>{new_email}</strong>.</p>
-                    <p>To complete this change, please click the link below:</p>
-                    <p><a href="{verification_url}">Verify New Email</a></p>
-                    <p>This link will expire in {settings.verification_token_expire_minutes} minutes.</p>
-                    <p>If you did not request this change, please ignore this email.</p>
-                </body>
-            </html>
-            """
-
-        success = send_email_via_sendgrid(
-            to_email=new_email,
-            subject="Verify New Email Address",
-            html_content=html_content,
-        )
-
-        if not success:
-            raise Exception("SendGrid email sending failed")
-        return True
-
-    except Exception as e:
-        if settings.debug:
-            print(f"Error sending email change verification step 2: {e}")
-        return False
+def create_email_change_token(
+    user_id: uuid.UUID, current_email: str, new_email: str
+) -> str:
+    """Create a JWT that proves control of the new address and switches the account to it"""
+    payload = {
+        "sub": new_email,
+        "user_id": str(user_id),
+        "current_email": current_email,
+        "type": "email_change",
+        "exp": datetime.utcnow()
+        + timedelta(minutes=settings.verification_token_expire_minutes),
+    }
+    return jwt.encode(payload, settings.secret_key, algorithm=settings.algorithm)
 
 
 def verify_email_change_token(token: str) -> dict | None:
-    """Verify email change token and return payload"""
+    """Return the email change claims if the token is valid"""
     try:
         payload = jwt.decode(
             token, settings.secret_key, algorithms=[settings.algorithm]
         )
-        return payload
-    except jwt.ExpiredSignatureError:
-        return None
     except jwt.InvalidTokenError:
         return None
+    if payload.get("type") != "email_change":
+        return None
+    return payload
+
+
+async def send_email_change_verification(new_email: str, verification_url: str):
+    """Send the link that confirms the new address to the new address"""
+    html_content = f"""
+    <html>
+      <body>
+        <h2>Verify Your New Email Address</h2>
+        <p>You asked to change the email address of your StudentsAI account to <strong>{new_email}</strong>.</p>
+        <p>Click the link below to confirm the change:</p>
+        <p><a href="{verification_url}">Verify New Email</a></p>
+        <p>This link will expire in {settings.verification_token_expire_minutes} minutes.</p>
+        <p>If you did not request this change, you can ignore this email.</p>
+      </body>
+    </html>
+    """
+
+    success = send_email_via_sendgrid(
+        to_email=new_email,
+        subject="Verify Your New Email - StudentsAI",
+        html_content=html_content,
+    )
+
+    if not success:
+        raise Exception("SendGrid email sending failed")

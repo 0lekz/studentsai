@@ -10,15 +10,11 @@ import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 import uuid
-from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.orm import Session
 
 from app.config import DEBUG
 from app.database import (
-    Event,
-    Flashcard,
-    Note,
     add_flashcard_tag,
     create_flashcard,
     create_note,
@@ -26,9 +22,13 @@ from app.database import (
     get_user_by_email,
     set_note_tags,
 )
+from app.models import Course
+from app.services.courses import create_course
+
+DEMO_COURSE_NAME = "Demo course"
 
 
-def create_demo_notes(db: Session, user_id: uuid.UUID):
+def create_demo_notes(db: Session, user_id: uuid.UUID, course_id: uuid.UUID):
     """Create realistic study notes with different topics"""
 
     notes_data = [
@@ -545,6 +545,7 @@ Mental health is as important as physical health and nutrition for overall welln
         note = create_note(
             db=db,
             user_id=user_id,
+            course_id=course_id,
             title=note_data["title"],
             content=note_data["content"],
         )
@@ -853,71 +854,16 @@ def create_demo_flashcards(db: Session, user_id: uuid.UUID, notes):
             db=db,
             user_id=user_id,
             note_id=fc_data["note_id"],
+            course_id=notes[0].course_id,
             question=fc_data["question"],
             answer=fc_data["answer"],
         )
         for tag in fc_data["tags"]:
-            add_flashcard_tag(db, flashcard.id, tag)
+            add_flashcard_tag(db, flashcard.id, user_id, tag)
         created_flashcards.append(flashcard)
         print(f"Created flashcard: {fc_data['question'][:50]}...")
 
     return created_flashcards
-
-
-def create_demo_activity(db: Session, user_id: uuid.UUID, notes, flashcards):
-    """Create realistic activity data over the last 30 days"""
-
-    # Generate dates for the last 30 days
-    end_date = datetime.now(UTC)
-    start_date = end_date - timedelta(days=30)
-
-    # Create daily activity patterns (more activity on weekdays, some weekends)
-    current_date = start_date
-    day_count = 0
-
-    while current_date <= end_date:
-        # More activity on weekdays (Monday = 0, Sunday = 6)
-        weekday = current_date.weekday()
-
-        # 3-7 activities on weekdays, 1-3 on weekends
-        num_activities = 3 + (day_count % 5) if weekday < 5 else 1 + (day_count % 3)
-
-        # Create activities for this day
-        for i in range(num_activities):
-            # Random time during the day
-            hour = 8 + (i * 4) % 12  # Spread activities throughout the day
-            activity_time = current_date.replace(
-                hour=hour, minute=0, second=0, microsecond=0
-            )
-
-            # Random activity type
-            activity_type = [
-                "NOTE_CREATED",
-                "NOTE_REVIEWED",
-                "FLASHCARD_CREATED",
-                "FLASHCARD_REVIEWED",
-            ][i % 4]
-
-            # Create event
-            event = Event(
-                id=uuid.uuid4(),
-                user_id=user_id,
-                event_type=activity_type,
-                occurred_at=activity_time,
-                target_id=notes[i % len(notes)].id
-                if "NOTE" in activity_type
-                else flashcards[i % len(flashcards)].id,
-                event_metadata={"source": "demo_data"},
-            )
-
-            db.add(event)
-
-        current_date += timedelta(days=1)
-        day_count += 1
-
-    db.commit()
-    if DEBUG:
-        print(f"Created activity data for {day_count} days")
 
 
 def main():
@@ -939,45 +885,37 @@ def main():
         if DEBUG:
             print(f"✅ Found user: {user.username} ({user.email})")
 
-        # Check if user already has data
-        existing_notes = db.query(Note).filter(Note.user_id == user.id).count()
-        if existing_notes > 0:
-            if DEBUG:
-                print(
-                    "\nWARNING: This will delete existing notes, flashcards, activity data for this user."
-                )
-            # Clear existing data in correct order (respect foreign keys)
-            db.query(Event).filter(Event.user_id == user.id).delete()
-            # Delete flashcard_srs records first (they reference flashcards)
-            from app.database import FlashcardSRS
-
-            db.query(FlashcardSRS).filter(FlashcardSRS.user_id == user.id).delete()
-            db.query(Flashcard).filter(Flashcard.user_id == user.id).delete()
-            db.query(Note).filter(Note.user_id == user.id).delete()
+        # Replace an earlier demo course; deleting it cascades to its notes and flashcards
+        previous = (
+            db.query(Course)
+            .filter(Course.user_id == user.id, Course.name == DEMO_COURSE_NAME)
+            .all()
+        )
+        if previous:
+            for course in previous:
+                db.delete(course)
             db.commit()
             if DEBUG:
-                print("✅ Cleared existing data")
+                print("✅ Removed the previous demo course")
+
+        course = create_course(
+            db, user.id, name=DEMO_COURSE_NAME, term=None, exam_date=None
+        )
 
         # Create demo notes
         if DEBUG:
             print("\n📝 Creating demo notes...")
-        notes = create_demo_notes(db, user.id)
+        notes = create_demo_notes(db, user.id, course.id)
 
         # Create demo flashcards
         if DEBUG:
             print("\n🃏 Creating demo flashcards...")
         flashcards = create_demo_flashcards(db, user.id, notes)
 
-        # Create demo activity
-        if DEBUG:
-            print("\n📊 Creating demo activity data...")
-        create_demo_activity(db, user.id, notes, flashcards)
-
         if DEBUG:
             print("\n🎉 Demo data created successfully!")
             print(f"   📝 Notes: {len(notes)}")
             print(f"   🃏 Flashcards: {len(flashcards)}")
-            print("   📊 Activity: 30 days of realistic data")
             print("\n🚀 Your account is now ready for screenshots and demos!")
 
     except Exception as e:

@@ -4,9 +4,8 @@ Pydantic schemas for API request/response validation
 
 import uuid
 from datetime import date, datetime
-from typing import Any
 
-from pydantic import BaseModel, EmailStr, validator
+from pydantic import BaseModel, EmailStr, Field, validator
 
 
 # Base schemas
@@ -76,7 +75,6 @@ class UserResponse(BaseModel):
     username: str
     verified: bool = False  # NEW: Email verification status
     has_password: bool = True
-    plan: str = "free"
     created_at: datetime
     updated_at: datetime
 
@@ -93,8 +91,9 @@ class GoogleOAuthResponse(BaseSchema):
 
 
 class UserProfileUpdate(BaseSchema):
+    """Email changes go through /auth/send-email-change-verification instead."""
+
     username: str | None = None
-    email: EmailStr | None = None
     current_password: str | None = None
     new_password: str | None = None
 
@@ -211,7 +210,7 @@ class NoteBase(BaseSchema):
 
 
 class NoteCreate(NoteBase):
-    pass
+    course_id: uuid.UUID | None = None
 
 
 class NoteUpdate(BaseSchema):
@@ -254,6 +253,7 @@ class NoteResponse(BaseSchema):
     created_at: datetime
     updated_at: datetime
     tags: list[str] | None = []
+    course_id: uuid.UUID | None = None
 
 
 class NoteListResponse(BaseSchema):
@@ -264,44 +264,6 @@ class NoteListResponse(BaseSchema):
 
 
 # Flashcard schemas
-class FlashcardBase(BaseSchema):
-    question: str
-    answer: str
-    flashcard_type: str = "single_note"  # "single_note" or "contextual"
-    context_notes: list[uuid.UUID] | None = None
-
-    @validator("question", "answer")
-    def validate_text(cls, v):
-        if not v or len(v.strip()) == 0:
-            raise ValueError("Question and answer cannot be empty")
-        return v.strip()
-
-    @validator("flashcard_type")
-    def validate_flashcard_type(cls, v):
-        if v not in ["single_note", "contextual"]:
-            raise ValueError("Flashcard type must be 'single_note' or 'contextual'")
-        return v
-
-
-class FlashcardCreate(FlashcardBase):
-    pass
-
-
-class Flashcard(FlashcardBase):
-    id: uuid.UUID
-    difficulty: int
-    last_reviewed: datetime | None = None
-    next_review: datetime | None = None
-    created_at: datetime
-    note_id: uuid.UUID
-    user_id: uuid.UUID
-    tags: list[str] | None = []
-    review_count: int = 0
-    mastery_level: int = 0
-    last_performance: int | None = None
-    user_answer_history: dict[str, Any] | None = None
-
-
 class FlashcardResponse(BaseSchema):
     id: uuid.UUID
     question: str
@@ -309,79 +271,39 @@ class FlashcardResponse(BaseSchema):
     difficulty: int
     last_reviewed: datetime | None = None
     created_at: datetime
-    flashcard_type: str
-    context_notes: list[uuid.UUID] | None = None
     tags: list[str] | None = []
     review_count: int
-    mastery_level: int
-    last_performance: int | None = None
+    course_id: uuid.UUID | None = None
 
 
-class FlashcardReview(BaseSchema):
-    flashcard_id: uuid.UUID
-    user_answer: str
-    performance_score: int | None = None  # 0-100 score
+class FlashcardReviewRequest(BaseSchema):
+    quality_rating: int = Field(ge=0, le=5)
 
 
 class FlashcardReviewResponse(BaseSchema):
     flashcard_id: uuid.UUID
-    performance_score: int
-    feedback: str
-    mastery_level: int
-    next_review_date: datetime | None = None
-    tags_updated: list[str] = []
-
-
-# New schemas for enhanced flashcard system
-class FlashcardSRSData(BaseSchema):
-    flashcard_id: uuid.UUID
-    efactor: float  # E-Factor (2.5, 3.0, etc.)
-    interval_days: int
-    due_date: date
+    quality_rating: int
     repetitions: int
-    next_review_date: date
+    interval_days: int
+    efactor: float
+    due_date: date
 
 
 class FlashcardSetInfo(BaseSchema):
     id: uuid.UUID
-    mode: str  # 'single' or 'context'
     seed_note_id: uuid.UUID
-    neighbor_note_ids: list[uuid.UUID] | None = []
     created_at: datetime
     flashcard_count: int
 
 
-class FlashcardDetailedReview(BaseSchema):
-    flashcard_id: uuid.UUID
-    typed_answer: str
-    quality_rating: int | None = None  # 0-5 rating for manual override
-
-
-class FlashcardReviewResult(BaseSchema):
-    flashcard_id: uuid.UUID
-    ai_score: int  # 0-100 score from LLM
-    verdict: str  # 'correct', 'partial', 'incorrect'
-    feedback: str
-    missing_points: list[str]
-    confidence: int  # 0-100 confidence from LLM
-    next_review_date: date
-    srs_data: FlashcardSRSData
-    tags_updated: list[str] = []
-
-
 class FlashcardGenerationRequest(BaseSchema):
-    mode: str  # 'single' or 'context'
     note_id: uuid.UUID
     count: int | None = 5
-    neighbors: int | None = 5
-    token_cap: int | None = 2500
 
 
 class FlashcardGenerationResponse(BaseSchema):
     flashcard_set_id: uuid.UUID
     cards: list[FlashcardResponse]
-    context_notes: list[uuid.UUID] | None = []
-    total_tokens_used: int | None = None
 
 
 # AI service schemas
@@ -460,11 +382,6 @@ class BacklinkResponse(BaseSchema):
     created_at: datetime
 
 
-class KeywordsSuggestResponse(BaseSchema):
-    note_id: uuid.UUID
-    keywords: list[str]
-
-
 class UpdateTagsRequest(BaseSchema):
     tags: list[str]
 
@@ -480,56 +397,6 @@ class ErrorResponse(BaseSchema):
 class SuccessResponse(BaseSchema):
     message: str
     data: dict | None = None
-
-
-# Events / Profile schemas
-class EventType(str):
-    NOTE_CREATED = "NOTE_CREATED"
-    NOTE_REVIEWED = "NOTE_REVIEWED"
-    NOTE_UPDATED = "NOTE_UPDATED"
-    FLASHCARD_CREATED = "FLASHCARD_CREATED"
-    FLASHCARD_REVIEWED = "FLASHCARD_REVIEWED"
-    FLASHCARD_UPDATED = "FLASHCARD_UPDATED"
-    FLASHCARD_TAGGED = "FLASHCARD_TAGGED"
-
-
-class EventItem(BaseSchema):
-    id: uuid.UUID
-    event_type: str
-    occurred_at: datetime
-    target_id: uuid.UUID | None = None
-    metadata: dict | None = None
-
-
-class ProfileSummaryResponse(BaseSchema):
-    notes_created: int
-    notes_reviewed: int
-    flashcards_created: int
-    flashcards_reviewed: int
-    current_streak: int
-    best_streak: int
-    activity_7d: int
-    activity_30d: int
-
-
-class ActivityDayCount(BaseSchema):
-    date: str  # YYYY-MM-DD (UTC)
-    count: int
-    top_type: str | None = None
-
-
-class ActivityResponse(BaseSchema):
-    from_date: str
-    to_date: str
-    kind: str
-    days: list[ActivityDayCount]
-
-
-class EventIngestRequest(BaseSchema):
-    event_type: str
-    target_id: uuid.UUID | None = None
-    occurred_at: datetime | None = None
-    metadata: dict | None = None
 
 
 # NEW: Email verification schemas
@@ -553,4 +420,4 @@ class VerificationResponse(BaseModel):
 
 
 class EmailChangeRequest(BaseModel):
-    new_email: str
+    new_email: EmailStr

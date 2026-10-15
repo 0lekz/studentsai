@@ -4,7 +4,6 @@ AI service integration for StudentsAI MVP using OpenAI
 
 import asyncio
 import logging
-import re
 from typing import Any
 
 import numpy as np
@@ -255,38 +254,6 @@ class AIService:
 
         return connections
 
-    def extract_keywords(self, text: str, max_keywords: int = 12) -> list[str]:
-        """Lightweight keyword extraction using TF-IDF on the single document split into chunks.
-        For MVP: split text into sentences, compute tf-idf terms, pick top N terms.
-        """
-        if not text:
-            return []
-        try:
-            # Basic cleanup
-            text = re.sub(r"\s+", " ", text)
-            # Split into pseudo-docs (sentences) so TF-IDF makes sense
-            sentences = re.split(r"(?<=[.!?])\s+", text)
-            sentences = [s for s in sentences if len(s.split()) >= 3]
-            if len(sentences) < 3:
-                sentences = [text]
-
-            vectorizer = TfidfVectorizer(
-                max_features=2000, stop_words="english", ngram_range=(1, 2)
-            )
-            tfidf_matrix = vectorizer.fit_transform(sentences)
-            # Aggregate scores across sentences
-            scores = np.asarray(tfidf_matrix.sum(axis=0)).ravel()
-            terms = np.array(vectorizer.get_feature_names_out())
-            # Rank by score
-            top_indices = np.argsort(scores)[::-1]
-            ranked_terms = [terms[i] for i in top_indices]
-            # Filter out very short tokens
-            ranked_terms = [t for t in ranked_terms if len(t) > 2][:max_keywords]
-            return ranked_terms
-        except Exception as e:
-            logger.warning(f"Keyword extraction failed: {e}")
-            return []
-
 
 # Global AI service instance
 ai_service = AIService()
@@ -308,53 +275,3 @@ async def generate_flashcards_from_content(
 def calculate_note_similarities(notes: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Calculate similarities between notes"""
     return ai_service.find_note_connections(notes)
-
-
-def extract_keywords_from_text(text: str, max_keywords: int = 12) -> list[str]:
-    """Extract keywords from text using TF-IDF"""
-    return ai_service.extract_keywords(text, max_keywords)
-
-
-async def evaluate_answer_with_llm(prompt: str) -> str:
-    """
-    Evaluate a student's answer using LLM for intelligent scoring.
-    This is a premium feature for paid users.
-    """
-    try:
-        # TODO: Implement actual LLM call (OpenAI, Anthropic, etc.)
-        # For now, return a mock response to test the system
-
-        # Mock LLM response - replace with actual API call
-        mock_response = {
-            "score": 85,
-            "quality_rating": 4,
-            "verdict": "correct",
-            "feedback": "Excellent understanding demonstrated! You've covered the key concepts well and shown good comprehension of the material.",
-            "key_points_covered": 4,
-            "key_points_missing": ["minor detail about timing"],
-            "confidence": 88,
-        }
-
-        import json
-
-        return json.dumps(mock_response)
-
-    except Exception as e:
-        from .config import DEBUG
-
-        if DEBUG:
-            print(f"LLM evaluation failed: {e}")
-        # Return fallback response
-        fallback_response = {
-            "score": 60,
-            "quality_rating": 3,
-            "verdict": "partial",
-            "feedback": "AI evaluation temporarily unavailable. Using fallback scoring.",
-            "key_points_covered": 2,
-            "key_points_missing": ["several key concepts"],
-            "confidence": 50,
-        }
-
-        import json
-
-        return json.dumps(fallback_response)

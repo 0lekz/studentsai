@@ -9,6 +9,7 @@ from fastapi import (
     APIRouter,
     Depends,
     File,
+    Form,
     HTTPException,
     Request,
     Response,
@@ -23,13 +24,18 @@ from starlette.types import Message, Receive
 from app.auth import get_current_user_id
 from app.config import settings
 from app.database import get_db
+from app.dependencies import (
+    enforce_rate_limit,
+    get_document_storage,
+    optional_owned_course_id,
+)
 from app.models.document import (
     Document,
     DocumentChunk,
     DocumentKind,
     DocumentStatus,
 )
-from app.rate_limiter import check_rate_limit
+from app.services.courses import get_course
 from app.services.ingestion import (
     DocumentStorage,
     delete_document,
@@ -59,6 +65,7 @@ class DocumentResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
+    course_id: uuid.UUID
     filename: str
     content_type: str
     size_bytes: int
@@ -126,16 +133,6 @@ class SizeLimitedRoute(APIRoute):
         return size_limited_handler
 
 
-async def enforce_rate_limit(
-    request: Request, user_id: uuid.UUID = Depends(get_current_user_id)
-) -> None:
-    await check_rate_limit(request, str(user_id))
-
-
-def get_document_storage() -> DocumentStorage:
-    return DocumentStorage(settings.document_storage_dir)
-
-
 def owned_document(
     document_id: uuid.UUID,
     user_id: uuid.UUID = Depends(get_current_user_id),
@@ -160,10 +157,13 @@ router = APIRouter(
 )
 def upload_document(
     file: UploadFile = File(...),
+    course_id: uuid.UUID = Form(...),
     user_id: uuid.UUID = Depends(get_current_user_id),
     db: Session = Depends(get_db),
     storage: DocumentStorage = Depends(get_document_storage),
 ) -> Document:
+    if get_course(db, user_id, course_id) is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Course not found")
     if file.content_type and file.content_type not in ACCEPTED_CONTENT_TYPES:
         raise _unsupported_type()
     if _size_of(file) > settings.max_document_bytes:
@@ -172,16 +172,22 @@ def upload_document(
     if PDF_SIGNATURE not in data[:PDF_SIGNATURE_WINDOW]:
         raise _unsupported_type()
     return ingest_pdf(
-        db, storage, user_id=user_id, filename=_display_name(file.filename), data=data
+        db,
+        storage,
+        user_id=user_id,
+        course_id=course_id,
+        filename=_display_name(file.filename),
+        data=data,
     )
 
 
 @router.get("", response_model=list[DocumentResponse])
 def get_documents(
     user_id: uuid.UUID = Depends(get_current_user_id),
+    course_id: uuid.UUID | None = Depends(optional_owned_course_id),
     db: Session = Depends(get_db),
 ) -> list[Document]:
-    return list_documents(db, user_id)
+    return list_documents(db, user_id, course_id)
 
 
 @router.get("/{document_id}", response_model=DocumentDetailResponse)

@@ -42,8 +42,28 @@ def prose_pdf() -> bytes:
     )
 
 
-def upload(client, data: bytes, filename="lecture.pdf", content_type="application/pdf"):
-    return client.post("/documents", files={"file": (filename, data, content_type)})
+@pytest.fixture
+def course(auth_client, create_course) -> dict:
+    return create_course(auth_client, "Algorithms")
+
+
+@pytest.fixture
+def other_course(other_auth_client, create_course) -> dict:
+    return create_course(other_auth_client, "Algorithms")
+
+
+def upload(
+    client,
+    course: dict,
+    data: bytes,
+    filename="lecture.pdf",
+    content_type="application/pdf",
+):
+    return client.post(
+        "/documents",
+        data={"course_id": course["id"]},
+        files={"file": (filename, data, content_type)},
+    )
 
 
 def stored_files(root) -> list:
@@ -51,9 +71,13 @@ def stored_files(root) -> list:
 
 
 def test_upload_extracts_a_slide_deck_and_stores_the_file(
-    auth_client, user, storage_root, deck_pdf
+    auth_client,
+    user,
+    storage_root,
+    deck_pdf,
+    course,
 ):
-    response = upload(auth_client, deck_pdf, filename="week1.pdf")
+    response = upload(auth_client, course, deck_pdf, filename="week1.pdf")
 
     assert response.status_code == 201, response.text
     document = response.json()
@@ -76,9 +100,12 @@ def test_upload_extracts_a_slide_deck_and_stores_the_file(
 
 
 def test_upload_extracts_a_prose_pdf_with_a_nested_outline(
-    auth_client, storage_root, prose_pdf
+    auth_client,
+    storage_root,
+    prose_pdf,
+    course,
 ):
-    response = upload(auth_client, prose_pdf)
+    response = upload(auth_client, course, prose_pdf)
 
     assert response.status_code == 201
     document = response.json()
@@ -97,9 +124,12 @@ def test_upload_extracts_a_prose_pdf_with_a_nested_outline(
 
 
 def test_chunks_are_listed_in_order_with_heading_paths_and_pages(
-    auth_client, storage_root, deck_pdf
+    auth_client,
+    storage_root,
+    deck_pdf,
+    course,
 ):
-    document = upload(auth_client, deck_pdf).json()
+    document = upload(auth_client, course, deck_pdf).json()
 
     response = auth_client.get(f"/documents/{document['id']}/chunks")
 
@@ -115,9 +145,12 @@ def test_chunks_are_listed_in_order_with_heading_paths_and_pages(
 
 
 def test_get_document_returns_the_detail_with_outline(
-    auth_client, storage_root, deck_pdf
+    auth_client,
+    storage_root,
+    deck_pdf,
+    course,
 ):
-    created = upload(auth_client, deck_pdf).json()
+    created = upload(auth_client, course, deck_pdf).json()
 
     response = auth_client.get(f"/documents/{created['id']}")
 
@@ -126,10 +159,18 @@ def test_get_document_returns_the_detail_with_outline(
 
 
 def test_list_returns_only_the_callers_documents_without_outlines(
-    auth_client, other_auth_client, storage_root, deck_pdf, prose_pdf
+    auth_client,
+    other_auth_client,
+    storage_root,
+    deck_pdf,
+    prose_pdf,
+    course,
+    other_course,
 ):
-    mine = {upload(auth_client, pdf).json()["id"] for pdf in (deck_pdf, prose_pdf)}
-    theirs = upload(other_auth_client, deck_pdf).json()["id"]
+    mine = {
+        upload(auth_client, course, pdf).json()["id"] for pdf in (deck_pdf, prose_pdf)
+    }
+    theirs = upload(other_auth_client, other_course, deck_pdf).json()["id"]
 
     my_list = auth_client.get("/documents").json()
     their_list = other_auth_client.get("/documents").json()
@@ -145,9 +186,15 @@ def test_list_returns_only_the_callers_documents_without_outlines(
     ids=["detail", "chunks", "delete"],
 )
 def test_another_users_document_is_not_found(
-    auth_client, other_auth_client, storage_root, deck_pdf, method, suffix
+    auth_client,
+    other_auth_client,
+    storage_root,
+    deck_pdf,
+    method,
+    suffix,
+    course,
 ):
-    document = upload(auth_client, deck_pdf).json()
+    document = upload(auth_client, course, deck_pdf).json()
 
     response = other_auth_client.request(method, f"/documents/{document['id']}{suffix}")
 
@@ -163,9 +210,13 @@ def test_missing_document_is_not_found(auth_client, suffix):
 
 
 def test_delete_removes_the_document_its_chunks_and_its_file(
-    auth_client, db_session, storage_root, deck_pdf
+    auth_client,
+    db_session,
+    storage_root,
+    deck_pdf,
+    course,
 ):
-    document_id = upload(auth_client, deck_pdf).json()["id"]
+    document_id = upload(auth_client, course, deck_pdf).json()["id"]
 
     response = auth_client.delete(f"/documents/{document_id}")
 
@@ -192,9 +243,16 @@ def test_delete_removes_the_document_its_chunks_and_its_file(
     ids=["text", "image", "mislabelled-png", "empty"],
 )
 def test_non_pdf_uploads_are_rejected_with_415_and_not_stored(
-    auth_client, storage_root, filename, data, content_type
+    auth_client,
+    storage_root,
+    filename,
+    data,
+    content_type,
+    course,
 ):
-    response = upload(auth_client, data, filename=filename, content_type=content_type)
+    response = upload(
+        auth_client, course, data, filename=filename, content_type=content_type
+    )
 
     assert response.status_code == 415
     assert response.json() == {"detail": "Only PDF files are supported."}
@@ -202,27 +260,42 @@ def test_non_pdf_uploads_are_rejected_with_415_and_not_stored(
     assert stored_files(storage_root) == []
 
 
-def test_pdf_sent_as_octet_stream_is_accepted(auth_client, storage_root, deck_pdf):
-    response = upload(auth_client, deck_pdf, content_type="application/octet-stream")
+def test_pdf_sent_as_octet_stream_is_accepted(
+    auth_client,
+    storage_root,
+    deck_pdf,
+    course,
+):
+    response = upload(
+        auth_client, course, deck_pdf, content_type="application/octet-stream"
+    )
 
     assert response.status_code == 201
     assert response.json()["content_type"] == "application/pdf"
 
 
 def test_upload_exactly_at_the_size_limit_is_accepted(
-    auth_client, storage_root, monkeypatch, deck_pdf
+    auth_client,
+    storage_root,
+    monkeypatch,
+    deck_pdf,
+    course,
 ):
     monkeypatch.setattr(settings, "max_document_bytes", len(deck_pdf))
 
-    assert upload(auth_client, deck_pdf).status_code == 201
+    assert upload(auth_client, course, deck_pdf).status_code == 201
 
 
 def test_upload_one_byte_over_the_size_limit_is_rejected_with_413(
-    auth_client, storage_root, monkeypatch, deck_pdf
+    auth_client,
+    storage_root,
+    monkeypatch,
+    deck_pdf,
+    course,
 ):
     monkeypatch.setattr(settings, "max_document_bytes", len(deck_pdf) - 1)
 
-    response = upload(auth_client, deck_pdf)
+    response = upload(auth_client, course, deck_pdf)
 
     assert response.status_code == 413
     assert auth_client.get("/documents").json() == []
@@ -234,7 +307,7 @@ def test_oversized_content_length_is_rejected_before_the_body_is_read(
 ):
     monkeypatch.setattr(settings, "max_document_bytes", 1024 * 1024)
 
-    response = upload(client, b"%PDF-" + bytes(2 * 1024 * 1024))
+    response = upload(client, {"id": MISSING_ID}, b"%PDF-" + bytes(2 * 1024 * 1024))
 
     assert response.status_code == 413
     assert response.json() == {"detail": "Documents are limited to 1 MB."}
@@ -258,8 +331,14 @@ def test_oversized_streamed_body_without_content_length_is_cut_off(
     assert response.status_code == 413
 
 
-def test_image_only_pdf_is_kept_as_failed_with_the_reason(auth_client, storage_root):
-    response = upload(auth_client, image_only_document(pages=2), filename="scan.pdf")
+def test_image_only_pdf_is_kept_as_failed_with_the_reason(
+    auth_client,
+    storage_root,
+    course,
+):
+    response = upload(
+        auth_client, course, image_only_document(pages=2), filename="scan.pdf"
+    )
 
     assert response.status_code == 201
     document = response.json()
@@ -272,8 +351,12 @@ def test_image_only_pdf_is_kept_as_failed_with_the_reason(auth_client, storage_r
     assert len(stored_files(storage_root)) == 1
 
 
-def test_corrupt_pdf_is_kept_as_failed(auth_client, storage_root):
-    response = upload(auth_client, b"%PDF-1.7\nthis is not a real pdf body")
+def test_corrupt_pdf_is_kept_as_failed(
+    auth_client,
+    storage_root,
+    course,
+):
+    response = upload(auth_client, course, b"%PDF-1.7\nthis is not a real pdf body")
 
     assert response.status_code == 201
     assert response.json()["status"] == "failed"
@@ -281,14 +364,18 @@ def test_corrupt_pdf_is_kept_as_failed(auth_client, storage_root):
 
 
 def test_unexpected_extraction_error_is_recorded_without_leaking_details(
-    auth_client, storage_root, monkeypatch, deck_pdf
+    auth_client,
+    storage_root,
+    monkeypatch,
+    deck_pdf,
+    course,
 ):
     def explode(data):
         raise RuntimeError("internal detail")
 
     monkeypatch.setattr(ingestion_documents, "extract_document", explode)
 
-    response = upload(auth_client, deck_pdf)
+    response = upload(auth_client, course, deck_pdf)
 
     assert response.status_code == 201
     assert response.json()["status"] == "failed"
@@ -296,7 +383,12 @@ def test_unexpected_extraction_error_is_recorded_without_leaking_details(
 
 
 def test_file_is_removed_when_the_database_write_fails(
-    auth_client, db_session, storage_root, monkeypatch, deck_pdf
+    auth_client,
+    db_session,
+    storage_root,
+    monkeypatch,
+    deck_pdf,
+    course,
 ):
     def fail_commit():
         raise RuntimeError("database unavailable")
@@ -304,14 +396,19 @@ def test_file_is_removed_when_the_database_write_fails(
     monkeypatch.setattr(db_session, "commit", fail_commit)
 
     with pytest.raises(RuntimeError, match="database unavailable"):
-        upload(auth_client, deck_pdf)
+        upload(auth_client, course, deck_pdf)
     assert stored_files(storage_root) == []
 
 
 def test_client_supplied_path_is_reduced_to_the_file_name(
-    auth_client, storage_root, deck_pdf
+    auth_client,
+    storage_root,
+    deck_pdf,
+    course,
 ):
-    response = upload(auth_client, deck_pdf, filename="C:\\Users\\me\\Week 1.pdf")
+    response = upload(
+        auth_client, course, deck_pdf, filename="C:\\Users\\me\\Week 1.pdf"
+    )
 
     assert response.json()["filename"] == "Week 1.pdf"
 
@@ -332,17 +429,14 @@ def test_deleting_the_account_deletes_its_documents_and_their_files(
     fake_mailer,
     storage_root,
     deck_pdf,
+    course,
+    other_course,
 ):
-    upload(auth_client, deck_pdf)
-    upload(other_auth_client, deck_pdf)
+    upload(auth_client, course, deck_pdf)
+    upload(other_auth_client, other_course, deck_pdf)
     assert (storage_root / user.id).is_dir()
     assert auth_client.post("/auth/request-account-deletion").status_code == 200
-    [deletion_email] = [
-        email
-        for email in fake_mailer.to(user.email)
-        if email.kind == "account_deletion"
-    ]
-    token = deletion_email.link.split("/verify/")[1].split("?")[0]
+    token = deletion_token(fake_mailer, user)
 
     response = client.post("/auth/confirm-account-deletion", json={"token": token})
 
@@ -352,6 +446,83 @@ def test_deleting_the_account_deletes_its_documents_and_their_files(
     assert remaining == [uuid.UUID(other_user.id)]
     assert not (storage_root / user.id).exists()
     assert len(stored_files(storage_root / other_user.id)) == 1
+
+
+def deletion_token(fake_mailer, user) -> str:
+    [deletion_email] = [
+        email
+        for email in fake_mailer.to(user.email)
+        if email.kind == "account_deletion"
+    ]
+    return deletion_email.link.split("/verify/")[1].split("?")[0]
+
+
+def test_retrying_an_account_deletion_removes_files_left_behind(
+    auth_client, client, user, fake_mailer, storage_root
+):
+    auth_client.post("/auth/request-account-deletion")
+    token = deletion_token(fake_mailer, user)
+    assert (
+        client.post("/auth/confirm-account-deletion", json={"token": token}).status_code
+        == 200
+    )
+    leftover = storage_root / user.id / "left-behind.pdf"
+    leftover.parent.mkdir(parents=True)
+    leftover.write_bytes(b"%PDF-")
+
+    response = client.post("/auth/confirm-account-deletion", json={"token": token})
+
+    assert response.json() == {"message": "Account deleted", "data": None}
+    assert not (storage_root / user.id).exists()
+
+
+def test_upload_without_a_course_returns_422(auth_client, storage_root, deck_pdf):
+    response = auth_client.post(
+        "/documents", files={"file": ("lecture.pdf", deck_pdf, "application/pdf")}
+    )
+
+    assert response.status_code == 422
+    assert stored_files(storage_root) == []
+
+
+def test_upload_into_another_users_course_returns_404(
+    auth_client, other_course, storage_root, deck_pdf
+):
+    response = upload(auth_client, other_course, deck_pdf)
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Course not found"}
+    assert stored_files(storage_root) == []
+
+
+def test_uploaded_document_belongs_to_its_course(
+    auth_client, course, storage_root, deck_pdf
+):
+    document = upload(auth_client, course, deck_pdf).json()
+
+    assert document["course_id"] == course["id"]
+    listed = auth_client.get("/documents").json()
+    assert [entry["course_id"] for entry in listed] == [course["id"]]
+
+
+def test_list_filters_by_course(
+    auth_client, course, create_course, storage_root, deck_pdf, prose_pdf
+):
+    biology = create_course(auth_client, "Biology")
+    in_course = upload(auth_client, course, deck_pdf).json()
+    upload(auth_client, biology, prose_pdf)
+
+    listed = auth_client.get("/documents", params={"course_id": course["id"]}).json()
+
+    assert [document["id"] for document in listed] == [in_course["id"]]
+    assert len(auth_client.get("/documents").json()) == 2
+
+
+def test_list_for_another_users_course_returns_404(auth_client, other_course):
+    response = auth_client.get("/documents", params={"course_id": other_course["id"]})
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Course not found"}
 
 
 def test_removing_files_of_a_user_without_documents_is_a_no_op(tmp_path):

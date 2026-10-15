@@ -1,3 +1,5 @@
+from datetime import UTC, datetime, timedelta
+
 import pytest
 
 MISSING_ID = "00000000-0000-0000-0000-000000000000"
@@ -23,11 +25,14 @@ def user_cards(client, **params) -> list[dict]:
     return response.json()
 
 
-def enhanced_review(client, card_id: str, typed_answer: str, quality=None):
-    payload = {"flashcard_id": card_id, "typed_answer": typed_answer}
-    if quality is not None:
-        payload["quality_rating"] = quality
-    return client.post(f"/flashcards/{card_id}/review/enhanced", json=payload)
+def review(client, card_id: str, quality: int):
+    return client.post(
+        f"/flashcards/{card_id}/review", json={"quality_rating": quality}
+    )
+
+
+def utc_days_from_today(days: int) -> str:
+    return (datetime.now(UTC).date() + timedelta(days=days)).isoformat()
 
 
 def test_generate_for_note_saves_the_ai_cards(auth_client, note, fake_ai):
@@ -42,14 +47,28 @@ def test_generate_for_note_saves_the_ai_cards(auth_client, note, fake_ai):
         ("Question 2?", "Answer 2"),
         ("Question 3?", "Answer 3"),
     ]
-    assert all(c["flashcard_type"] == "single_note" for c in cards)
-    assert all(c["review_count"] == 0 and c["mastery_level"] == 0 for c in cards)
+    assert all(c["review_count"] == 0 for c in cards)
+    assert all(c["course_id"] is None for c in cards)
     assert fake_ai.calls == [
         (
             "generate_flashcards_from_content",
             {"content": note["content"], "count": 3},
         )
     ]
+
+
+def test_flashcards_carry_no_mastery_or_contextual_fields(flashcard):
+    assert set(flashcard) == {
+        "id",
+        "question",
+        "answer",
+        "difficulty",
+        "last_reviewed",
+        "created_at",
+        "tags",
+        "review_count",
+        "course_id",
+    }
 
 
 def test_generate_for_note_defaults_to_five_cards(auth_client, note):
@@ -113,10 +132,48 @@ def test_user_flashcards_filters_by_tag(auth_client, note):
     assert [c["id"] for c in tagged] == [cards[0]["id"]]
 
 
-def test_due_flashcards_include_never_reviewed_cards(auth_client, flashcard):
-    response = auth_client.get("/flashcards/due")
+def test_cards_generated_from_a_course_note_belong_to_that_course(
+    auth_client, create_course, create_note
+):
+    biology = create_course(auth_client, "Biology")
+    chemistry = create_course(auth_client, "Chemistry")
+    cell_note = create_note(auth_client, "Cells", "Body", course_id=biology["id"])
+    loose_note = create_note(auth_client, "Loose", "Body")
+    auth_client.post(
+        f"/notes/{cell_note['id']}/flashcards/generate", params={"count": 2}
+    )
+    auth_client.post("/flashcards/generate", json={"note_id": cell_note["id"]})
+    auth_client.post(
+        f"/notes/{loose_note['id']}/flashcards/generate", params={"count": 1}
+    )
 
-    assert [c["id"] for c in response.json()] == [flashcard["id"]]
+    in_biology = user_cards(auth_client, course_id=biology["id"])
+
+    assert len(in_biology) == 7
+    assert {c["course_id"] for c in in_biology} == {biology["id"]}
+    assert user_cards(auth_client, course_id=chemistry["id"]) == []
+    assert len(user_cards(auth_client)) == 8
+
+
+def test_user_flashcards_for_another_users_course_returns_404(
+    auth_client, other_auth_client, create_course
+):
+    theirs = create_course(other_auth_client)
+
+    response = auth_client.get("/flashcards/user", params={"course_id": theirs["id"]})
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Course not found"}
+
+
+def test_new_cards_are_due_for_review_right_away(auth_client, note):
+    cards = auth_client.post(
+        f"/notes/{note['id']}/flashcards/generate", params={"count": 2}
+    ).json()
+
+    response = auth_client.get("/flashcards/due/srs")
+
+    assert {c["id"] for c in response.json()} == {c["id"] for c in cards}
 
 
 def test_ai_flashcards_returns_generated_cards_without_saving(auth_client, fake_ai):
@@ -135,148 +192,89 @@ def test_ai_flashcards_returns_generated_cards_without_saving(auth_client, fake_
     assert user_cards(auth_client) == []
 
 
-def test_enhanced_generate_single_mode_creates_a_set_and_due_srs_entries(
-    auth_client, note
-):
+def test_generate_creates_a_set_of_cards_that_are_due(auth_client, note):
     response = auth_client.post(
-        "/flashcards/generate",
-        json={"mode": "single", "note_id": note["id"], "count": 2},
+        "/flashcards/generate", json={"note_id": note["id"], "count": 2}
     )
 
     assert response.status_code == 200
     body = response.json()
+    assert set(body) == {"flashcard_set_id", "cards"}
     assert len(body["cards"]) == 2
-    assert body["context_notes"] == [note["id"]]
     [flashcard_set] = auth_client.get("/flashcards/sets").json()
-    assert flashcard_set["id"] == body["flashcard_set_id"]
-    assert flashcard_set["mode"] == "single"
-    assert flashcard_set["seed_note_id"] == note["id"]
-    assert flashcard_set["flashcard_count"] == 2
+    assert flashcard_set == {
+        "id": body["flashcard_set_id"],
+        "seed_note_id": note["id"],
+        "created_at": flashcard_set["created_at"],
+        "flashcard_count": 2,
+    }
     due_ids = {c["id"] for c in auth_client.get("/flashcards/due/srs").json()}
     assert due_ids == {c["id"] for c in body["cards"]}
 
 
-def test_enhanced_generate_context_mode_only_searches_the_seed_note(
-    auth_client, note, create_note, fake_ai
-):
-    create_note(auth_client, "Cell biology", "Mitochondria produce energy.")
-
-    response = auth_client.post(
-        "/flashcards/generate",
-        json={"mode": "context", "note_id": note["id"], "count": 2},
-    )
-
-    assert response.status_code == 200
-    body = response.json()
-    assert body["context_notes"] == []
-    assert all(c["flashcard_type"] == "contextual" for c in body["cards"])
-    assert all(c["tags"] == ["contextual"] for c in body["cards"])
-    [(_, similarity_args)] = [
-        call for call in fake_ai.calls if call[0] == "calculate_note_similarities"
-    ]
-    # Suspected bug: only the seed note is passed to the similarity search, so no neighbors are ever found.
-    assert [str(n["id"]) for n in similarity_args["notes"]] == [note["id"]]
-
-
-def test_enhanced_generate_with_unknown_mode_returns_500(auth_client, note):
-    response = auth_client.post(
-        "/flashcards/generate", json={"mode": "bogus", "note_id": note["id"]}
-    )
-
-    # Suspected bug: the 400 for an unknown mode is caught by the generic handler and becomes a 500.
-    assert response.status_code == 500
-    assert response.json()["detail"].startswith("Failed to generate flashcards")
-
-
-def test_enhanced_generate_for_unknown_note_returns_404(auth_client):
-    response = auth_client.post(
-        "/flashcards/generate", json={"mode": "single", "note_id": MISSING_ID}
-    )
+def test_generate_for_unknown_note_returns_404(auth_client):
+    response = auth_client.post("/flashcards/generate", json={"note_id": MISSING_ID})
 
     assert response.status_code == 404
 
 
-def test_review_returns_500_but_still_records_progress(auth_client, flashcard):
-    response = auth_client.post(
-        f"/flashcards/{flashcard['id']}/review",
-        json={
-            "flashcard_id": flashcard["id"],
-            "user_answer": "Answer 1",
-            "performance_score": 90,
-        },
-    )
+def test_review_returns_the_sm2_schedule(auth_client, flashcard):
+    response = review(auth_client, flashcard["id"], 5)
 
-    # Suspected bug: the handler reads quality_rating, which FlashcardReview does not define.
-    assert response.status_code == 500
-    assert "quality_rating" in response.json()["detail"]
+    assert response.status_code == 200
+    assert response.json() == {
+        "flashcard_id": flashcard["id"],
+        "quality_rating": 5,
+        "repetitions": 1,
+        "interval_days": 1,
+        "efactor": 2.6,
+        "due_date": utc_days_from_today(1),
+    }
     [card] = user_cards(auth_client)
     assert card["review_count"] == 1
-    assert card["mastery_level"] == 20
-    assert card["last_performance"] == 90
     assert card["last_reviewed"] is not None
+    assert auth_client.get("/flashcards/due/srs").json() == []
+
+
+def test_second_successful_review_moves_the_card_six_days_out(auth_client, flashcard):
+    review(auth_client, flashcard["id"], 5)
+
+    body = review(auth_client, flashcard["id"], 5).json()
+
+    assert body["repetitions"] == 2
+    assert body["interval_days"] == 6
+    assert body["efactor"] == 2.7
+    assert body["due_date"] == utc_days_from_today(6)
+
+
+def test_failed_review_keeps_the_card_due_tomorrow(auth_client, flashcard):
+    review(auth_client, flashcard["id"], 5)
+
+    body = review(auth_client, flashcard["id"], 1).json()
+
+    assert (body["repetitions"], body["interval_days"]) == (0, 1)
+    assert body["efactor"] == 2.6
+    assert body["due_date"] == utc_days_from_today(1)
+
+
+@pytest.mark.parametrize("quality", [-1, 6])
+def test_review_rejects_a_rating_outside_zero_to_five(auth_client, flashcard, quality):
+    assert review(auth_client, flashcard["id"], quality).status_code == 422
+
+
+def test_review_requires_a_rating(auth_client, flashcard):
+    response = auth_client.post(
+        f"/flashcards/{flashcard['id']}/review", json={"typed_answer": "Answer 1"}
+    )
+
+    assert response.status_code == 422
 
 
 def test_review_of_unknown_flashcard_returns_404(auth_client):
-    response = auth_client.post(
-        f"/flashcards/{MISSING_ID}/review",
-        json={"flashcard_id": MISSING_ID, "user_answer": "x", "performance_score": 90},
-    )
+    response = review(auth_client, MISSING_ID, 5)
 
     assert response.status_code == 404
     assert response.json() == {"detail": "Flashcard not found"}
-
-
-def test_enhanced_review_with_manual_rating_schedules_the_card(auth_client, flashcard):
-    response = enhanced_review(auth_client, flashcard["id"], "anything", quality=5)
-
-    assert response.status_code == 200
-    body = response.json()
-    assert body["verdict"] == "correct"
-    assert body["ai_score"] == 100
-    assert body["srs_data"]["repetitions"] == 1
-    assert body["srs_data"]["interval_days"] == 1
-    assert body["srs_data"]["efactor"] == 2.6
-    assert body["next_review_date"] == body["srs_data"]["due_date"]
-    [card] = user_cards(auth_client)
-    assert card["review_count"] == 1
-    assert card["mastery_level"] == 20
-    assert card["last_performance"] == 100
-
-
-def test_second_successful_enhanced_review_moves_the_card_six_days_out(
-    auth_client, flashcard
-):
-    enhanced_review(auth_client, flashcard["id"], "anything", quality=5)
-
-    body = enhanced_review(auth_client, flashcard["id"], "anything", quality=5).json()
-
-    assert body["srs_data"]["repetitions"] == 2
-    assert body["srs_data"]["interval_days"] == 6
-    assert body["srs_data"]["efactor"] == 2.7
-
-
-def test_enhanced_review_scores_an_exact_answer_as_perfect(auth_client, flashcard):
-    body = enhanced_review(auth_client, flashcard["id"], "  answer 1 ").json()
-
-    assert body["verdict"] == "correct"
-    assert body["ai_score"] == 100
-    assert body["srs_data"]["repetitions"] == 1
-
-
-def test_enhanced_review_scores_an_unrelated_answer_as_a_failure(
-    auth_client, flashcard
-):
-    body = enhanced_review(auth_client, flashcard["id"], "banana").json()
-
-    assert body["verdict"] == "incorrect"
-    assert body["ai_score"] == 20
-    assert body["srs_data"]["repetitions"] == 0
-    assert body["srs_data"]["interval_days"] == 1
-    assert body["srs_data"]["efactor"] == 2.5
-
-
-def test_enhanced_review_of_unknown_flashcard_returns_404(auth_client):
-    assert enhanced_review(auth_client, MISSING_ID, "x", quality=5).status_code == 404
 
 
 def test_first_tag_on_a_flashcard_is_stored(auth_client, flashcard):
@@ -290,25 +288,35 @@ def test_first_tag_on_a_flashcard_is_stored(auth_client, flashcard):
     assert user_cards(auth_client)[0]["tags"] == ["visit_later"]
 
 
-def test_second_tag_on_a_flashcard_is_reported_but_not_stored(auth_client, flashcard):
+def test_second_tag_on_a_flashcard_is_stored(auth_client, flashcard):
     auth_client.post(f"/flashcards/{flashcard['id']}/tags/visit_later")
 
     response = auth_client.post(f"/flashcards/{flashcard['id']}/tags/revisited")
 
-    # Suspected bug: tags.append mutates the ARRAY in place, so SQLAlchemy never flushes it.
     assert response.status_code == 200
-    assert response.json()["tags"] == ["visit_later"]
-    assert user_cards(auth_client)[0]["tags"] == ["visit_later"]
+    assert response.json()["tags"] == ["visit_later", "revisited"]
+    assert user_cards(auth_client)[0]["tags"] == ["visit_later", "revisited"]
 
 
-def test_removing_a_flashcard_tag_is_reported_but_not_stored(auth_client, flashcard):
+def test_adding_a_tag_twice_keeps_one(auth_client, flashcard):
     auth_client.post(f"/flashcards/{flashcard['id']}/tags/visit_later")
+
+    response = auth_client.post(f"/flashcards/{flashcard['id']}/tags/visit_later")
+
+    assert response.json()["tags"] == ["visit_later"]
+
+
+def test_removing_a_flashcard_tag_is_stored(auth_client, flashcard):
+    auth_client.post(f"/flashcards/{flashcard['id']}/tags/visit_later")
+    auth_client.post(f"/flashcards/{flashcard['id']}/tags/revisited")
 
     response = auth_client.delete(f"/flashcards/{flashcard['id']}/tags/visit_later")
 
-    # Suspected bug: tags.remove mutates the ARRAY in place, so SQLAlchemy never flushes it.
-    assert response.json()["message"] == "Tag 'visit_later' removed successfully"
-    assert user_cards(auth_client)[0]["tags"] == ["visit_later"]
+    assert response.json() == {
+        "message": "Tag 'visit_later' removed successfully",
+        "tags": ["revisited"],
+    }
+    assert user_cards(auth_client)[0]["tags"] == ["revisited"]
 
 
 def test_tagging_unknown_flashcard_returns_404(auth_client):
@@ -317,15 +325,14 @@ def test_tagging_unknown_flashcard_returns_404(auth_client):
     assert response.status_code == 404
 
 
-def test_another_user_can_tag_and_review_someone_elses_flashcard(
+def test_another_users_flashcard_cannot_be_tagged_or_reviewed(
     auth_client, other_auth_client, flashcard
 ):
-    tag = other_auth_client.post(f"/flashcards/{flashcard['id']}/tags/bob_was_here")
-    review = enhanced_review(other_auth_client, flashcard["id"], "x", quality=5)
+    card_url = f"/flashcards/{flashcard['id']}"
 
-    # Suspected bug: flashcard tag and review routes never check ownership.
-    assert tag.status_code == 200
-    assert review.status_code == 200
+    assert other_auth_client.post(f"{card_url}/tags/bob_was_here").status_code == 404
+    assert other_auth_client.delete(f"{card_url}/tags/bob_was_here").status_code == 404
+    assert review(other_auth_client, flashcard["id"], 5).status_code == 404
     [card] = user_cards(auth_client)
-    assert card["tags"] == ["bob_was_here"]
-    assert card["review_count"] == 1
+    assert card["tags"] == []
+    assert card["review_count"] == 0

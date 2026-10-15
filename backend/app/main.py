@@ -3,12 +3,11 @@ StudentsAI MVP - FastAPI Backend Application
 """
 
 import asyncio
-import contextlib
 import os
 import re
 import shutil
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from urllib.parse import urlparse
 
 import jwt
@@ -29,13 +28,11 @@ from sqlalchemy import text as sql_text
 from sqlalchemy.orm import Session
 
 from .ai_service import (
-    ai_service,
     calculate_note_similarities,
-    extract_keywords_from_text,
     generate_flashcards_from_content,
     summarize_content,
 )
-from .api import documents
+from .api import courses, documents
 from .auth import (
     authenticate_user,
     create_access_token,
@@ -56,14 +53,13 @@ from .config import (
     settings,
 )
 from .database import (
-    ActivityDaily,
     Flashcard,
-    PendingEmailChange,
+    Note,
     User,
     add_flashcard_tag,
+    apply_flashcard_review,
     archive_mastered_flashcards,
-    compute_streaks,
-    create_contextual_flashcard,
+    count_notes_by_user,
     create_flashcard,
     create_flashcard_set,
     create_note,
@@ -71,10 +67,8 @@ from .database import (
     create_tables,
     delete_note,
     delete_note_link,
-    get_activity_counts,
     get_backlinks,
     get_db,
-    get_due_flashcards,
     get_due_flashcards_srs,
     get_flashcard_sets_by_user,
     get_flashcards_by_note,
@@ -82,31 +76,25 @@ from .database import (
     get_note_by_id,
     get_notes_by_titles,
     get_notes_by_user,
-    # SRS and flashcard set functions
-    get_or_create_srs_entry,
-    get_recent_events,
     get_similarities_for_notes,
-    get_totals,
     get_user_by_email,
     get_user_by_id,
     get_user_by_username,
-    # Enhanced flashcard functions
+    get_user_flashcard,
     get_user_flashcards,
-    record_event,
     remove_flashcard_tag,
     replace_manual_links_for_note,
     set_note_tags,
-    update_flashcard_progress,
     update_note,
-    update_srs_after_review,
     update_user_profile,
 )
+from .dependencies import get_document_storage, optional_owned_course_id
 from .email_service import (
+    create_email_change_token,
     create_password_reset_token,
     create_verification_token,
     send_account_deletion_email,
-    send_email_change_verification_step1,
-    send_email_change_verification_step2,
+    send_email_change_verification,
     send_password_reset_email,
     send_verification_email,
     verify_email_change_token,
@@ -115,28 +103,18 @@ from .email_service import (
 )
 from .oauth_service import GoogleOAuthService
 from .rate_limiter import check_ai_rate_limit, check_auth_rate_limit, check_rate_limit
-from .rate_limiter_enhanced import enhanced_rate_limiter
 from .schemas import (
-    ActivityDayCount,
-    ActivityResponse,
     BacklinkResponse,
     EmailChangeRequest,
     # Email verification schemas
     EmailVerificationRequest,
     EmailVerificationResponse,
-    EventIngestRequest,
-    EventItem,
-    FlashcardDetailedReview,
     FlashcardGenerationRequest,
     FlashcardGenerationResponse,
     FlashcardResponse,
-    # Enhanced flashcard schemas
-    FlashcardReview,
+    FlashcardReviewRequest,
     FlashcardReviewResponse,
-    FlashcardReviewResult,
     FlashcardSetInfo,
-    # New SRS and flashcard schemas
-    FlashcardSRSData,
     ForgotPasswordRequest,
     GenerateFlashcardsRequest,
     GenerateFlashcardsResponse,
@@ -144,13 +122,11 @@ from .schemas import (
     GoogleOAuthResponse,
     GraphNode,
     GraphResponse,
-    KeywordsSuggestResponse,
     NoteConnection,
     NoteCreate,
     NoteListResponse,
     NoteResponse,
     NoteUpdate,
-    ProfileSummaryResponse,
     ResetPasswordRequest,
     SettingsAdvanced,
     SettingsAI,
@@ -170,6 +146,7 @@ from .schemas import (
     VerificationResponse,
     VerifyEmailToken,
 )
+from .services.courses import get_course
 from .services.embedding_service import (
     find_embedding_connections,
     refresh_note_embedding,
@@ -255,48 +232,13 @@ UPLOAD_DIR = os.path.abspath(UPLOAD_DIR)
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
+app.include_router(courses.router)
 app.include_router(documents.router)
 
 
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "service": "StudentsAI MVP API"}
-
-
-@app.post("/test/email")
-async def test_email_service(
-    request: Request,
-    user_id: uuid.UUID = Depends(get_current_user_id),
-    db: Session = Depends(get_db),
-):
-    """Test endpoint to verify email service is working"""
-    await check_rate_limit(request, str(user_id))
-
-    user = get_user_by_id(db, user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    try:
-        # Test basic email sending
-        from .email_service import send_email_via_sendgrid
-
-        success = send_email_via_sendgrid(
-            to_email=user.email,
-            subject="Email Service Test - StudentsAI",
-            html_content="<h2>Email Test</h2><p>If you received this, your email service is working!</p>",
-        )
-
-        if not success:
-            raise Exception("SendGrid email sending failed")
-
-        return {"status": "success", "message": f"Test email sent to {user.email}"}
-
-    except Exception as e:
-        return {
-            "status": "error",
-            "message": f"Email service failed: {e!s}",
-            "details": str(type(e).__name__),
-        }
 
 
 _background_tasks: set[asyncio.Task] = set()
@@ -308,13 +250,37 @@ def _run_in_background(coro) -> None:
     task.add_done_callback(_background_tasks.discard)
 
 
+def _note_response(note: Note) -> NoteResponse:
+    return NoteResponse(
+        id=note.id,
+        title=note.title,
+        content=note.content,
+        summary=note.summary,
+        created_at=note.created_at,
+        updated_at=note.updated_at,
+        tags=note.tags or [],
+        course_id=note.course_id,
+    )
+
+
+def _flashcard_response(flashcard: Flashcard) -> FlashcardResponse:
+    return FlashcardResponse(
+        id=flashcard.id,
+        question=flashcard.question,
+        answer=flashcard.answer,
+        difficulty=flashcard.difficulty,
+        last_reviewed=flashcard.last_reviewed,
+        created_at=flashcard.created_at,
+        tags=flashcard.tags or [],
+        review_count=flashcard.review_count,
+        course_id=flashcard.course_id,
+    )
+
+
 # Create database tables on startup
 @app.on_event("startup")
 async def startup_event():
     create_tables()
-    # Initialize enhanced rate limiter in background
-    with contextlib.suppress(Exception):
-        _run_in_background(enhanced_rate_limiter.init_redis())
 
 
 # Global exception handler
@@ -370,7 +336,6 @@ async def register(
                 "username": user.username,
                 "verified": user.verified,
                 "has_password": bool(user.password_hash),
-                "plan": user.plan,
                 "created_at": user.created_at,
                 "updated_at": user.updated_at,
             },
@@ -413,7 +378,6 @@ async def login(user_data: UserLogin, request: Request, db: Session = Depends(ge
             "username": user.username,
             "verified": user.verified,
             "has_password": bool(user.password_hash),
-            "plan": user.plan,
             "created_at": user.created_at,
             "updated_at": user.updated_at,
         },
@@ -436,7 +400,6 @@ async def refresh_token(
             "username": current_user.username,
             "verified": current_user.verified,
             "has_password": bool(current_user.password_hash),
-            "plan": current_user.plan,
             "created_at": current_user.created_at,
             "updated_at": current_user.updated_at,
         },
@@ -554,232 +517,95 @@ async def send_verification_email_endpoint(
         ) from e
 
 
-@app.post("/auth/send-email-change-verification")
-async def send_email_change_verification(
-    request: EmailChangeRequest,
+@app.post("/auth/send-email-change-verification", response_model=SuccessResponse)
+async def send_email_change_verification_endpoint(
+    payload: EmailChangeRequest,
+    request: Request,
     current_user_id: uuid.UUID = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ):
-    """Step 1: Initiate email change verification process"""
+    """Email a confirmation link to the new address; the address changes when it is followed"""
+    await check_rate_limit(request, str(current_user_id))
+
+    current_user = get_user_by_id(db, current_user_id)
+    if not current_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
+
+    if payload.new_email == current_user.email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This is already your email address",
+        )
+
+    if get_user_by_email(db, payload.new_email):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email address is already in use by another account",
+        )
+
+    token = create_email_change_token(
+        current_user.id, current_user.email, payload.new_email
+    )
+    verification_url = f"{settings.frontend_url}/verify-email-change/{token}"
     try:
-        # Get current user
-        current_user = get_user_by_id(db, current_user_id)
-        if not current_user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
-            )
-
-        # Check if new email is already in use by another user
-        existing_user = get_user_by_email(db, request.new_email)
-        if existing_user and existing_user.id != current_user.id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email address is already in use by another account",
-            )
-
-        # Check if there's already a pending email change
-        existing_pending = (
-            db.query(PendingEmailChange)
-            .filter(
-                PendingEmailChange.user_id == current_user_id,
-                PendingEmailChange.expires_at > datetime.utcnow(),
-            )
-            .first()
-        )
-
-        if existing_pending:
-            # Update existing pending change
-            existing_pending.new_email = request.new_email
-            existing_pending.expires_at = datetime.utcnow() + timedelta(hours=24)
-            existing_pending.current_email_verified = False
-            existing_pending.new_email_verified = False
-        else:
-            # Create new pending change
-            pending_change = PendingEmailChange(
-                user_id=current_user_id,
-                current_email=current_user.email,
-                new_email=request.new_email,
-                expires_at=datetime.utcnow() + timedelta(hours=24),
-            )
-            db.add(pending_change)
-
-        db.commit()
-
-        # Send verification email to current email
-        success = await send_email_change_verification_step1(
-            db, current_user_id, current_user.email, request.new_email
-        )
-
-        if success:
-            return {"message": "Verification email sent to your current email address"}
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to send verification email",
-            )
-
-    except HTTPException:
-        raise
+        await send_email_change_verification(payload.new_email, verification_url)
     except Exception as e:
-        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to initiate email change verification",
+            detail="Failed to send verification email",
         ) from e
 
+    return SuccessResponse(message="Verification email sent to your new email address")
 
-@app.get("/auth/verify-email-change-step1/{token}", response_model=VerificationResponse)
-async def verify_email_change_step1(
-    token: str,
-    new_email: str,
-    db: Session = Depends(get_db),
-):
-    """Step 1: Verify current email ownership, then send verification to new email"""
+
+@app.post("/auth/verify-email-change", response_model=VerificationResponse)
+async def verify_email_change(payload: VerifyEmailToken, db: Session = Depends(get_db)):
+    """Switch the account to the new address the token was sent to"""
+    invalid_token = HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Invalid or expired verification token",
+    )
+    claims = verify_email_change_token(payload.token)
+    if not claims:
+        raise invalid_token
     try:
-        # Verify token and get payload
-        payload = verify_email_change_token(token)
-        if not payload or payload.get("type") != "email_change_step1":
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid or expired verification token",
-            )
+        user_id = uuid.UUID(claims["user_id"])
+        new_email = claims["sub"]
+    except (KeyError, TypeError, ValueError):
+        raise invalid_token from None
 
-        current_email = payload.get("sub")
-        user_id = payload.get("user_id")
-
-        if not current_email or not user_id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid token payload",
-            )
-
-        # Get pending email change record
-        pending_change = (
-            db.query(PendingEmailChange)
-            .filter(
-                PendingEmailChange.user_id == user_id,
-                PendingEmailChange.current_email == current_email,
-                PendingEmailChange.new_email == new_email,
-                PendingEmailChange.expires_at > datetime.utcnow(),
-            )
-            .first()
-        )
-
-        if not pending_change:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No pending email change found or expired",
-            )
-
-        # Mark current email as verified
-        pending_change.current_email_verified = True
-        db.commit()
-
-        # Send verification email to new email
-        success = await send_email_change_verification_step2(db, user_id, new_email)
-
-        if success:
-            return VerificationResponse(
-                message="Current email verified. Please check your new email for verification.",
-                verified=True,
-            )
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to send verification to new email",
-            )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        db.rollback()
+    user = get_user_by_id(db, user_id)
+    if not user:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to verify current email",
-        ) from e
-
-
-@app.get("/auth/verify-email-change-step2/{token}", response_model=VerificationResponse)
-async def verify_email_change_step2(
-    token: str,
-    current_email: str,
-    db: Session = Depends(get_db),
-):
-    """Step 2: Verify new email, then finalize email change"""
-    try:
-        # Verify token and get payload
-        payload = verify_email_change_token(token)
-        if not payload or payload.get("type") != "email_change_step2":
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid or expired verification token",
-            )
-
-        new_email = payload.get("sub")
-        user_id = payload.get("user_id")
-
-        if not new_email or not user_id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid token payload",
-            )
-
-        # Get pending email change record
-        pending_change = (
-            db.query(PendingEmailChange)
-            .filter(
-                PendingEmailChange.user_id == user_id,
-                PendingEmailChange.current_email == current_email,
-                PendingEmailChange.new_email == new_email,
-                PendingEmailChange.current_email_verified.is_(True),
-                PendingEmailChange.expires_at > datetime.utcnow(),
-            )
-            .first()
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
 
-        if not pending_change:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No valid pending email change found",
-            )
-
-        # Mark new email as verified
-        pending_change.new_email_verified = True
-        db.commit()
-
-        # Now both emails are verified - update the user's email
-        user = get_user_by_id(db, user_id)
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
-            )
-
-        # Update user email
-        user.email = new_email
-        user.verified = True  # New email is verified
-        db.commit()
-
-        # Clean up pending change record
-        db.delete(pending_change)
-        db.commit()
-
-        # Generate new access token with updated email
-        new_access_token = create_access_token(data={"sub": new_email})
-
+    if user.email == new_email:
         return VerificationResponse(
-            message="Email address updated successfully",
-            verified=True,
-            access_token=new_access_token,
+            message="Email address already updated", verified=True
         )
 
-    except HTTPException:
-        raise
-    except Exception as e:
-        db.rollback()
+    # A link sent before an earlier change went through is stale
+    if user.email != claims.get("current_email"):
+        raise invalid_token
+
+    if get_user_by_email(db, new_email):
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update email address",
-        ) from e
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email address is already in use by another account",
+        )
+
+    user.email = new_email
+    user.verified = True
+    db.commit()
+
+    return VerificationResponse(
+        message="Email address updated successfully",
+        verified=True,
+        access_token=create_access_token(data={"sub": new_email}),
+    )
 
 
 @app.get("/auth/verify/{token}", response_model=VerificationResponse)
@@ -869,28 +695,18 @@ async def get_notes(
     skip: int = 0,
     limit: int = 100,
     user_id: uuid.UUID = Depends(get_current_user_id),
+    course_id: uuid.UUID | None = Depends(optional_owned_course_id),
     db: Session = Depends(get_db),
 ):
-    """Get user's notes"""
+    """Get user's notes, optionally only those of one course"""
     try:
         await check_rate_limit(request, str(user_id))
 
-        notes = get_notes_by_user(db, user_id, skip, limit)
+        notes = get_notes_by_user(db, user_id, skip, limit, course_id=course_id)
 
         return NoteListResponse(
-            notes=[
-                NoteResponse(
-                    id=note.id,
-                    title=note.title,
-                    content=note.content,
-                    summary=note.summary,
-                    created_at=note.created_at,
-                    updated_at=note.updated_at,
-                    tags=note.tags or [],
-                )
-                for note in notes
-            ],
-            total=len(notes),
+            notes=[_note_response(note) for note in notes],
+            total=count_notes_by_user(db, user_id, course_id=course_id),
             page=skip // limit + 1,
             per_page=limit,
         )
@@ -912,20 +728,19 @@ async def create_new_note(
     """Create a new note"""
     await check_rate_limit(request, str(user_id))
 
-    note = create_note(db, note_data.title, note_data.content, user_id)
-    await refresh_note_embedding(db, note)
-    with contextlib.suppress(Exception):
-        record_event(db, user_id, "NOTE_CREATED", target_id=note.id)
+    if note_data.course_id is not None and not get_course(
+        db, user_id, note_data.course_id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Course not found"
+        )
 
-    return NoteResponse(
-        id=note.id,
-        title=note.title,
-        content=note.content,
-        summary=note.summary,
-        created_at=note.created_at,
-        updated_at=note.updated_at,
-        tags=note.tags or [],
+    note = create_note(
+        db, note_data.title, note_data.content, user_id, note_data.course_id
     )
+    await refresh_note_embedding(db, note)
+
+    return _note_response(note)
 
 
 @app.get("/notes/{note_id}", response_model=NoteResponse)
@@ -944,14 +759,7 @@ async def get_note(
             status_code=status.HTTP_404_NOT_FOUND, detail="Note not found"
         )
 
-    return NoteResponse(
-        id=note.id,
-        title=note.title,
-        content=note.content,
-        summary=note.summary,
-        created_at=note.created_at,
-        updated_at=note.updated_at,
-    )
+    return _note_response(note)
 
 
 @app.put("/notes/{note_id}", response_model=NoteResponse)
@@ -981,10 +789,6 @@ async def update_existing_note(
 
     await refresh_note_embedding(db, updated_note)
 
-    # Record the note update event
-    with contextlib.suppress(Exception):
-        record_event(db, user_id, "NOTE_UPDATED", target_id=updated_note.id)
-
     # Parse manual wiki-links [[Title]] and update note_links
     try:
         content_to_parse = updated_note.content or ""
@@ -997,15 +801,7 @@ async def update_existing_note(
     except Exception:
         pass
 
-    return NoteResponse(
-        id=updated_note.id,
-        title=updated_note.title,
-        content=updated_note.content,
-        summary=updated_note.summary,
-        created_at=updated_note.created_at,
-        updated_at=updated_note.updated_at,
-        tags=updated_note.tags or [],
-    )
+    return _note_response(updated_note)
 
 
 @app.put("/notes/{note_id}/tags", response_model=NoteResponse)
@@ -1022,19 +818,7 @@ async def update_note_tags(
         raise HTTPException(status_code=404, detail="Note not found")
     updated = set_note_tags(db, note, request_data.tags)
 
-    # Record the tag update event
-    with contextlib.suppress(Exception):
-        record_event(db, user_id, "NOTE_UPDATED", target_id=updated.id)
-
-    return NoteResponse(
-        id=updated.id,
-        title=updated.title,
-        content=updated.content,
-        summary=updated.summary,
-        created_at=updated.created_at,
-        updated_at=updated.updated_at,
-        tags=updated.tags or [],
-    )
+    return _note_response(updated)
 
 
 @app.post("/notes/{note_id}/links", response_model=SuccessResponse)
@@ -1186,64 +970,12 @@ async def summarize_note(
     try:
         summary = await summarize_content(note.content)
         updated_note = update_note(db, note, summary=summary)
-        with contextlib.suppress(Exception):
-            record_event(db, user_id, "NOTE_REVIEWED", target_id=note.id)
 
-        return NoteResponse(
-            id=updated_note.id,
-            title=updated_note.title,
-            content=updated_note.content,
-            summary=updated_note.summary,
-            created_at=updated_note.created_at,
-            updated_at=updated_note.updated_at,
-            tags=updated_note.tags or [],
-        )
+        return _note_response(updated_note)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to generate summary: {e!s}",
-        ) from e
-
-
-@app.post("/notes/{note_id}/extract-keywords", response_model=NoteResponse)
-async def extract_note_keywords(
-    note_id: uuid.UUID,
-    request: Request,
-    user_id: uuid.UUID = Depends(get_current_user_id),
-    db: Session = Depends(get_db),
-):
-    """Extract keywords from a note using TF-IDF"""
-    await check_ai_rate_limit(request, str(user_id))
-
-    note = get_note_by_id(db, note_id, user_id)
-    if not note:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Note not found"
-        )
-
-    try:
-        # Extract keywords using TF-IDF
-        keywords = extract_keywords_from_text(note.content)
-
-        # Update note with keywords
-        updated_note = set_note_tags(db, note, keywords)
-
-        with contextlib.suppress(Exception):
-            record_event(db, user_id, "NOTE_REVIEWED", target_id=note.id)
-
-        return NoteResponse(
-            id=updated_note.id,
-            title=updated_note.title,
-            content=updated_note.content,
-            summary=updated_note.summary,
-            created_at=updated_note.created_at,
-            updated_at=updated_note.updated_at,
-            tags=updated_note.tags or [],
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to extract keywords: {e!s}",
         ) from e
 
 
@@ -1265,26 +997,8 @@ async def get_note_flashcards(
         )
 
     flashcards = get_flashcards_by_note(db, note_id)
-    with contextlib.suppress(Exception):
-        record_event(db, user_id, "NOTE_REVIEWED", target_id=note_id)
 
-    return [
-        FlashcardResponse(
-            id=flashcard.id,
-            question=flashcard.question,
-            answer=flashcard.answer,
-            difficulty=flashcard.difficulty,
-            last_reviewed=flashcard.last_reviewed,
-            created_at=flashcard.created_at,
-            flashcard_type=flashcard.flashcard_type,
-            context_notes=flashcard.context_notes,
-            tags=flashcard.tags or [],
-            review_count=flashcard.review_count,
-            mastery_level=flashcard.mastery_level,
-            last_performance=flashcard.last_performance,
-        )
-        for flashcard in flashcards
-    ]
+    return [_flashcard_response(flashcard) for flashcard in flashcards]
 
 
 @app.post(
@@ -1311,29 +1025,19 @@ async def generate_note_flashcards(
             note.content, count
         )
 
-        saved_flashcards = []
-        for flashcard_data in generated_flashcards:
-            flashcard = create_flashcard(
-                db, flashcard_data.question, flashcard_data.answer, note_id, user_id
-            )
-            with contextlib.suppress(Exception):
-                record_event(db, user_id, "FLASHCARD_CREATED", target_id=flashcard.id)
-            saved_flashcards.append(
-                FlashcardResponse(
-                    id=flashcard.id,
-                    question=flashcard.question,
-                    answer=flashcard.answer,
-                    difficulty=flashcard.difficulty,
-                    last_reviewed=flashcard.last_reviewed,
-                    created_at=flashcard.created_at,
-                    flashcard_type=flashcard.flashcard_type,
-                    context_notes=flashcard.context_notes,
-                    tags=flashcard.tags or [],
-                    review_count=flashcard.review_count,
-                    mastery_level=flashcard.mastery_level,
-                    last_performance=flashcard.last_performance,
+        saved_flashcards = [
+            _flashcard_response(
+                create_flashcard(
+                    db,
+                    flashcard_data.question,
+                    flashcard_data.answer,
+                    note_id,
+                    user_id,
+                    note.course_id,
                 )
             )
+            for flashcard_data in generated_flashcards
+        ]
 
         return saved_flashcards
 
@@ -1351,369 +1055,45 @@ async def get_user_flashcards_endpoint(
     search: str | None = None,
     request: Request = None,
     user_id: uuid.UUID = Depends(get_current_user_id),
+    course_id: uuid.UUID | None = Depends(optional_owned_course_id),
     db: Session = Depends(get_db),
 ):
-    """Get all flashcards for a user, optionally filtered by tags and search query"""
+    """Get all flashcards for a user, optionally filtered by course, tags and search query"""
     await check_rate_limit(request, str(user_id))
 
     tag_list = tags.split(",") if tags else None
-    flashcards = get_user_flashcards(db, user_id, tag_list, search)
+    flashcards = get_user_flashcards(db, user_id, tag_list, search, course_id)
 
-    return [
-        FlashcardResponse(
-            id=flashcard.id,
-            question=flashcard.question,
-            answer=flashcard.answer,
-            difficulty=flashcard.difficulty,
-            last_reviewed=flashcard.last_reviewed,
-            created_at=flashcard.created_at,
-            flashcard_type=flashcard.flashcard_type,
-            context_notes=flashcard.context_notes,
-            tags=flashcard.tags or [],
-            review_count=flashcard.review_count,
-            mastery_level=flashcard.mastery_level,
-            last_performance=flashcard.last_performance,
-        )
-        for flashcard in flashcards
-    ]
-
-
-@app.get("/flashcards/due", response_model=list[FlashcardResponse])
-async def get_due_flashcards_endpoint(
-    limit: int = 20,
-    request: Request = None,
-    user_id: uuid.UUID = Depends(get_current_user_id),
-    db: Session = Depends(get_db),
-):
-    """Get flashcards that are due for review"""
-    await check_rate_limit(request, str(user_id))
-
-    flashcards = get_due_flashcards(db, user_id, limit)
-
-    return [
-        FlashcardResponse(
-            id=flashcard.id,
-            question=flashcard.question,
-            answer=flashcard.answer,
-            difficulty=flashcard.difficulty,
-            last_reviewed=flashcard.last_reviewed,
-            created_at=flashcard.created_at,
-            flashcard_type=flashcard.flashcard_type,
-            context_notes=flashcard.context_notes,
-            tags=flashcard.tags or [],
-            review_count=flashcard.review_count,
-            mastery_level=flashcard.mastery_level,
-            last_performance=flashcard.last_performance,
-        )
-        for flashcard in flashcards
-    ]
+    return [_flashcard_response(flashcard) for flashcard in flashcards]
 
 
 @app.post("/flashcards/{flashcard_id}/review", response_model=FlashcardReviewResponse)
 async def review_flashcard(
     flashcard_id: uuid.UUID,
-    review_data: FlashcardReview,
+    review_data: FlashcardReviewRequest,
     request: Request = None,
     user_id: uuid.UUID = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ):
-    """Review a flashcard and update progress"""
+    """Reschedule a card with SM-2 from the student's own 0-5 rating"""
     await check_rate_limit(request, str(user_id))
 
-    try:
-        # Update flashcard progress
-        flashcard = update_flashcard_progress(
-            db,
-            flashcard_id,
-            review_data.performance_score or 0,
-            review_data.user_answer,
-        )
-
-        # Record review event
-        with contextlib.suppress(Exception):
-            record_event(db, user_id, "FLASHCARD_REVIEWED", target_id=flashcard_id)
-
-        # Determine quality rating (manual override or AI evaluation)
-        quality_rating = review_data.quality_rating
-        ai_score = None
-        verdict = None
-        feedback = None
-        confidence = None
-
-        if quality_rating is None:
-            # Check if user has access to LLM evaluation (paid feature)
-            user_has_llm_access = True  # TODO: Implement paid user check
-
-            if user_has_llm_access:
-                # LLM-based evaluation for accurate answer scoring
-                try:
-                    # Prepare the evaluation prompt
-                    evaluation_prompt = f"""
-                    You are an expert educator evaluating a student's answer to a flashcard question.
-                    
-                    Question: {flashcard.question}
-                    Correct Answer: {flashcard.answer}
-                    Student Answer: {review_data.typed_answer}
-                    
-                    Evaluate the student's answer based on:
-                    1. Accuracy of key concepts
-                    2. Completeness of the response
-                    3. Understanding demonstrated
-                    4. Relevance to the question
-                    
-                    Return ONLY a JSON response with this exact format:
-                    {{
-                        "score": <number 0-100>,
-                        "quality_rating": <number 1-5>,
-                        "verdict": "<correct|partial|incorrect>",
-                        "feedback": "<detailed feedback explaining the score>",
-                        "key_points_covered": <number of key concepts correctly addressed>,
-                        "key_points_missing": ["<list of missing key concepts>"],
-                        "confidence": <number 0-100>
-                    }}
-                    
-                    Scoring guidelines:
-                    - 90-100: Excellent understanding, all key points covered (quality 5)
-                    - 75-89: Good understanding, most key points covered (quality 4)
-                    - 60-74: Partial understanding, some key points covered (quality 3)
-                    - 40-59: Limited understanding, few key points covered (quality 2)
-                    - 0-39: Poor understanding, minimal key points covered (quality 1)
-                    
-                    Be fair but strict. Consider synonyms and different ways of expressing the same concept.
-                    """
-
-                    # Call LLM for evaluation (you'll need to implement this)
-                    from .ai_service import evaluate_answer_with_llm
-
-                    llm_result = await evaluate_answer_with_llm(evaluation_prompt)
-
-                    # Parse LLM response
-                    import json
-
-                    try:
-                        evaluation = json.loads(llm_result)
-                        quality_rating = evaluation.get("quality_rating", 3)
-                        ai_score = evaluation.get("score", 60)
-                        verdict = evaluation.get("verdict", "partial")
-                        feedback = evaluation.get("feedback", "AI evaluation completed")
-                        confidence = evaluation.get("confidence", 80)
-                    except (json.JSONDecodeError, KeyError):
-                        # Fallback to simple evaluation if LLM fails
-                        quality_rating = 3
-                        ai_score = 60
-                        verdict = "partial"
-                        feedback = "AI evaluation completed with fallback scoring"
-                        confidence = 70
-
-                except Exception as e:
-                    # Fallback to simple evaluation if LLM service fails
-                    if DEBUG:
-                        print(f"LLM evaluation failed: {e}")
-
-                    # Simple fallback evaluation (case-insensitive, symbol-ignoring)
-                    typed_answer = review_data.typed_answer.lower().strip()
-                    correct_answer = flashcard.answer.lower().strip()
-
-                    # Remove ALL punctuation, symbols, and extra whitespace for comparison
-                    import re
-
-                    typed_clean = re.sub(r"[^\w\s]", "", typed_answer).strip()
-                    correct_clean = re.sub(r"[^\w\s]", "", correct_answer).strip()
-
-                    # Normalize whitespace (replace multiple spaces with single space)
-                    typed_clean = re.sub(r"\s+", " ", typed_clean)
-                    correct_clean = re.sub(r"\s+", " ", correct_clean)
-
-                    if typed_clean == correct_clean:
-                        quality_rating = 5
-                        ai_score = 100
-                        verdict = "correct"
-                        feedback = "Perfect answer!"
-                    else:
-                        # Word-based similarity (case-insensitive, symbol-ignoring)
-                        typed_words = set(typed_clean.split())
-                        correct_words = set(correct_clean.split())
-
-                        if len(correct_words) == 0:
-                            quality_rating = 1
-                            ai_score = 20
-                            verdict = "incorrect"
-                            feedback = "Answer needs improvement"
-                        else:
-                            overlap = len(typed_words.intersection(correct_words))
-                            similarity_score = (overlap / len(correct_words)) * 100
-
-                            # Much more generous scoring for real-world answers
-                            if similarity_score >= 0.8:  # Lowered from 0.9
-                                quality_rating = 5
-                                ai_score = 95
-                                verdict = "correct"
-                                feedback = "Excellent answer!"
-                            elif similarity_score >= 0.6:  # Lowered from 0.75
-                                quality_rating = 4
-                                ai_score = 80
-                                verdict = "correct"
-                                feedback = "Very good answer!"
-                            elif similarity_score >= 0.4:  # Lowered from 0.6
-                                quality_rating = 3
-                                ai_score = 65
-                                verdict = "partial"
-                                feedback = "Good effort, but missing some key points"
-                            elif similarity_score >= 0.2:  # Lowered from 0.4
-                                quality_rating = 2
-                                ai_score = 45
-                                verdict = "partial"
-                                feedback = (
-                                    "Some understanding shown, but needs improvement"
-                                )
-                            else:
-                                quality_rating = 1
-                                ai_score = 25
-                                verdict = "incorrect"
-                                feedback = "Answer needs significant improvement"
-
-                    confidence = 70
-            else:
-                # Free user - use simple evaluation
-                typed_answer = review_data.typed_answer.lower().strip()
-                correct_answer = flashcard.answer.lower().strip()
-
-                # Remove ALL punctuation, symbols, and extra whitespace for comparison
-                import re
-
-                typed_clean = re.sub(r"[^\w\s]", "", typed_answer).strip()
-                correct_clean = re.sub(r"[^\w\s]", "", correct_answer).strip()
-
-                # Normalize whitespace (replace multiple spaces with single space)
-                typed_clean = re.sub(r"\s+", " ", typed_clean)
-                correct_clean = re.sub(r"\s+", " ", correct_clean)
-
-                if typed_clean == correct_clean:
-                    quality_rating = 5
-                    ai_score = 100
-                    verdict = "correct"
-                    feedback = "Perfect answer!"
-                else:
-                    # Word-based similarity (case-insensitive, symbol-ignoring)
-                    typed_words = set(typed_clean.split())
-                    correct_words = set(correct_clean.split())
-
-                    if len(correct_words) == 0:
-                        quality_rating = 1
-                        ai_score = 20
-                        verdict = "incorrect"
-                        feedback = "Answer needs improvement"
-                    else:
-                        overlap = len(typed_words.intersection(correct_words))
-                        similarity_score = (overlap / len(correct_words)) * 100
-
-                        # Much more generous scoring for real-world answers
-                        if similarity_score >= 0.8:  # Lowered from 0.9
-                            quality_rating = 5
-                            ai_score = 95
-                            verdict = "correct"
-                            feedback = "Excellent answer!"
-                        elif similarity_score >= 0.6:  # Lowered from 0.75
-                            quality_rating = 4
-                            ai_score = 80
-                            verdict = "correct"
-                            feedback = "Very good answer!"
-                        elif similarity_score >= 0.4:  # Lowered from 0.6
-                            quality_rating = 3
-                            ai_score = 65
-                            verdict = "partial"
-                            feedback = "Good effort, but missing some key points"
-                        elif similarity_score >= 0.2:  # Lowered from 0.4
-                            quality_rating = 2
-                            ai_score = 45
-                            verdict = "partial"
-                            feedback = "Some understanding shown, but needs improvement"
-                        else:
-                            quality_rating = 1
-                            ai_score = 25
-                            verdict = "incorrect"
-                            feedback = "Answer needs significant improvement"
-
-                confidence = 70
-
-        # Update SRS
-        srs_entry = update_srs_after_review(db, flashcard_id, user_id, quality_rating)
-
-        # Update flashcard progress
-        flashcard.review_count += 1
-        flashcard.last_reviewed = datetime.now(UTC)
-
-        # Map quality to performance score
-        performance_map = {0: 0, 1: 20, 2: 40, 3: 60, 4: 80, 5: 100}
-        performance_score = performance_map.get(quality_rating, 60)
-        flashcard.last_performance = performance_score
-
-        # Update mastery level
-        if performance_score >= 80:
-            flashcard.mastery_level = min(100, flashcard.mastery_level + 20)
-        elif performance_score < 50:
-            flashcard.mastery_level = max(0, flashcard.mastery_level - 10)
-
-        # Update tags based on performance
-        if not flashcard.tags:
-            flashcard.tags = []
-
-        if performance_score >= 80 and srs_entry.repetitions >= 3:
-            if "recently_learned" not in flashcard.tags:
-                flashcard.tags.append("recently_learned")
-        elif performance_score < 50 and "recently_learned" in flashcard.tags:
-            flashcard.tags.remove("recently_learned")
-
-        db.commit()
-
-        # Record review event
-        with contextlib.suppress(Exception):
-            record_event(db, user_id, "FLASHCARD_REVIEWED", target_id=flashcard_id)
-
-        # Generate feedback based on LLM evaluation
-        if (
-            "feedback" in locals()
-            and feedback != "AI evaluation completed with fallback scoring"
-        ):
-            # Use LLM-generated feedback
-            pass
-        else:
-            # Fallback feedback generation
-            if quality_rating >= 4:
-                feedback = "Excellent! You've mastered this concept."
-            elif quality_rating == 3:
-                feedback = "Good job! Keep practicing to improve."
-            else:
-                feedback = (
-                    "Keep studying this material. Review the answer and try again."
-                )
-
-        # Create SRS data response
-        srs_data = FlashcardSRSData(
-            flashcard_id=flashcard_id,
-            efactor=srs_entry.efactor / 100.0,  # Convert back to float
-            interval_days=srs_entry.interval_days,
-            due_date=srs_entry.due_date,
-            repetitions=srs_entry.repetitions,
-            next_review_date=srs_entry.due_date,
-        )
-
-        return FlashcardReviewResponse(
-            flashcard_id=flashcard_id,
-            performance_score=flashcard.last_performance,
-            feedback=feedback,
-            mastery_level=flashcard.mastery_level,
-            next_review_date=flashcard.next_review,
-            tags_updated=flashcard.tags or [],
-        )
-
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
-    except Exception as e:
+    flashcard = get_user_flashcard(db, flashcard_id, user_id)
+    if not flashcard:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to review flashcard: {e!s}",
-        ) from e
+            status_code=status.HTTP_404_NOT_FOUND, detail="Flashcard not found"
+        )
+
+    srs_entry = apply_flashcard_review(db, flashcard, review_data.quality_rating)
+
+    return FlashcardReviewResponse(
+        flashcard_id=flashcard.id,
+        quality_rating=review_data.quality_rating,
+        repetitions=srs_entry.repetitions,
+        interval_days=srs_entry.interval_days,
+        efactor=srs_entry.efactor / 100.0,
+        due_date=srs_entry.due_date,
+    )
 
 
 @app.post("/flashcards/{flashcard_id}/tags/{tag}")
@@ -1728,18 +1108,7 @@ async def add_flashcard_tag_endpoint(
     await check_rate_limit(request, str(user_id))
 
     try:
-        flashcard = add_flashcard_tag(db, flashcard_id, tag)
-
-        # Record the flashcard tag event
-        with contextlib.suppress(Exception):
-            record_event(
-                db,
-                user_id,
-                "FLASHCARD_TAGGED",
-                target_id=flashcard_id,
-                metadata={"tag": tag, "action": "added"},
-            )
-
+        flashcard = add_flashcard_tag(db, flashcard_id, user_id, tag)
         return {"message": f"Tag '{tag}' added successfully", "tags": flashcard.tags}
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
@@ -1757,112 +1126,10 @@ async def remove_flashcard_tag_endpoint(
     await check_rate_limit(request, str(user_id))
 
     try:
-        flashcard = remove_flashcard_tag(db, flashcard_id, tag)
-
-        # Record the flashcard tag removal event
-        with contextlib.suppress(Exception):
-            record_event(
-                db,
-                user_id,
-                "FLASHCARD_TAGGED",
-                target_id=flashcard_id,
-                metadata={"tag": tag, "action": "removed"},
-            )
-
+        flashcard = remove_flashcard_tag(db, flashcard_id, user_id, tag)
         return {"message": f"Tag '{tag}' removed successfully", "tags": flashcard.tags}
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
-
-
-@app.post(
-    "/notes/{note_id}/flashcards/contextual/generate",
-    response_model=list[FlashcardResponse],
-)
-async def generate_contextual_flashcards(
-    note_id: uuid.UUID,
-    count: int = 10,
-    request: Request = None,
-    user_id: uuid.UUID = Depends(get_current_user_id),
-    db: Session = Depends(get_db),
-):
-    """Generate contextual flashcards using the note and its strongest connections"""
-    await check_ai_rate_limit(request, str(user_id))
-
-    note = get_note_by_id(db, note_id, user_id)
-    if not note:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Note not found"
-        )
-
-    try:
-        # Get note similarities to find strongest connections
-        notes_data = [{"id": note.id, "title": note.title, "content": note.content}]
-        similarities = calculate_note_similarities(notes_data)
-
-        # Get top 5 most similar notes
-        context_notes = []
-        if similarities:
-            # Sort by similarity and get top 5
-            sorted_sims = sorted(
-                similarities, key=lambda x: x["similarity"], reverse=True
-            )
-            top_notes = sorted_sims[:5]
-
-            for sim in top_notes:
-                if sim["source_id"] != note_id:
-                    context_notes.append(sim["source_id"])
-                elif sim["target_id"] != note_id:
-                    context_notes.append(sim["target_id"])
-
-        # Generate flashcards with context
-        contextual_content = note.content
-        if context_notes:
-            # Add context from related notes
-            for ctx_note_id in context_notes:
-                ctx_note = get_note_by_id(db, ctx_note_id, user_id)
-                if ctx_note:
-                    contextual_content += f"\n\nRelated context from '{ctx_note.title}':\n{ctx_note.content[:500]}..."
-
-        generated_flashcards = await generate_flashcards_from_content(
-            contextual_content, count
-        )
-
-        saved_flashcards = []
-        for flashcard_data in generated_flashcards:
-            flashcard = create_contextual_flashcard(
-                db,
-                flashcard_data.question,
-                flashcard_data.answer,
-                note_id,
-                user_id,
-                context_notes,
-            )
-            with contextlib.suppress(Exception):
-                record_event(db, user_id, "FLASHCARD_CREATED", target_id=flashcard.id)
-            saved_flashcards.append(
-                FlashcardResponse(
-                    id=flashcard.id,
-                    question=flashcard.question,
-                    answer=flashcard.answer,
-                    difficulty=flashcard.difficulty,
-                    last_reviewed=flashcard.last_reviewed,
-                    created_at=flashcard.created_at,
-                    flashcard_type=flashcard.flashcard_type,
-                    context_notes=flashcard.context_notes,
-                    tags=flashcard.tags or [],
-                    review_count=flashcard.review_count,
-                    mastery_level=flashcard.mastery_level,
-                    last_performance=flashcard.last_performance,
-                )
-            )
-
-        return saved_flashcards
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate contextual flashcards: {e!s}",
-        ) from e
 
 
 # Enhanced flashcard system endpoints
@@ -1873,7 +1140,7 @@ async def generate_flashcards_enhanced(
     user_id: uuid.UUID = Depends(get_verified_user_id),
     db: Session = Depends(get_db),
 ):
-    """Generate flashcards using the new enhanced system"""
+    """Generate a set of flashcards from one note"""
     await check_ai_rate_limit(request, str(user_id))
 
     note = get_note_by_id(db, request_data.note_id, user_id)
@@ -1883,322 +1150,34 @@ async def generate_flashcards_enhanced(
         )
 
     try:
-        if request_data.mode == "single":
-            # Single note mode
-            generated_flashcards = await generate_flashcards_from_content(
-                note.content, request_data.count or 5
-            )
+        generated_flashcards = await generate_flashcards_from_content(
+            note.content, request_data.count or 5
+        )
 
-            # Create flashcard set
-            flashcard_set = create_flashcard_set(
-                db, user_id, "single", request_data.note_id
-            )
+        flashcard_set = create_flashcard_set(db, user_id, note.id)
 
-            # Save flashcards
-            saved_flashcards = []
-            for flashcard_data in generated_flashcards:
-                flashcard = create_flashcard(
+        saved_flashcards = [
+            _flashcard_response(
+                create_flashcard(
                     db,
                     flashcard_data.question,
                     flashcard_data.answer,
-                    request_data.note_id,
+                    note.id,
                     user_id,
-                    "single_note",
+                    note.course_id,
                 )
-
-                # Create SRS entry
-                get_or_create_srs_entry(db, flashcard.id, user_id)
-
-                with contextlib.suppress(Exception):
-                    record_event(
-                        db, user_id, "FLASHCARD_CREATED", target_id=flashcard.id
-                    )
-
-                saved_flashcards.append(
-                    FlashcardResponse(
-                        id=flashcard.id,
-                        question=flashcard.question,
-                        answer=flashcard.answer,
-                        difficulty=flashcard.difficulty,
-                        last_reviewed=flashcard.last_reviewed,
-                        created_at=flashcard.created_at,
-                        flashcard_type=flashcard.flashcard_type,
-                        context_notes=flashcard.context_notes,
-                        tags=flashcard.tags or [],
-                        review_count=flashcard.review_count,
-                        mastery_level=flashcard.mastery_level,
-                        last_performance=flashcard.last_performance,
-                    )
-                )
-
-            return FlashcardGenerationResponse(
-                flashcard_set_id=flashcard_set.id,
-                cards=saved_flashcards,
-                context_notes=[request_data.note_id],
             )
+            for flashcard_data in generated_flashcards
+        ]
 
-        elif request_data.mode == "context":
-            # Context-graph mode
-            notes_data = [{"id": note.id, "title": note.title, "content": note.content}]
-            similarities = calculate_note_similarities(notes_data)
-
-            # Get top neighbors
-            context_notes = []
-            if similarities:
-                sorted_sims = sorted(
-                    similarities, key=lambda x: x["similarity"], reverse=True
-                )
-                top_notes = sorted_sims[: request_data.neighbors or 5]
-
-                for sim in top_notes:
-                    if sim["source_id"] != request_data.note_id:
-                        context_notes.append(sim["source_id"])
-                    elif sim["target_id"] != request_data.note_id:
-                        context_notes.append(sim["target_id"])
-
-            # Generate contextual content
-            contextual_content = note.content
-            total_tokens = len(note.content.split())  # Rough token estimate
-
-            for ctx_note_id in context_notes:
-                if total_tokens >= (request_data.token_cap or 2500):
-                    break
-
-                ctx_note = get_note_by_id(db, ctx_note_id, user_id)
-                if ctx_note:
-                    note_content = ctx_note.content[:500]  # Limit context per note
-                    contextual_content += f"\n\nRelated context from '{ctx_note.title}':\n{note_content}..."
-                    total_tokens += len(note_content.split())
-
-            # Generate flashcards
-            generated_flashcards = await generate_flashcards_from_content(
-                contextual_content, request_data.count or 10
-            )
-
-            # Create flashcard set
-            flashcard_set = create_flashcard_set(
-                db, user_id, "context", request_data.note_id, context_notes
-            )
-
-            # Save flashcards
-            saved_flashcards = []
-            for flashcard_data in generated_flashcards:
-                flashcard = create_contextual_flashcard(
-                    db,
-                    flashcard_data.question,
-                    flashcard_data.answer,
-                    request_data.note_id,
-                    user_id,
-                    context_notes,
-                )
-
-                # Create SRS entry
-                get_or_create_srs_entry(db, flashcard.id, user_id)
-
-                with contextlib.suppress(Exception):
-                    record_event(
-                        db, user_id, "FLASHCARD_CREATED", target_id=flashcard.id
-                    )
-
-                saved_flashcards.append(
-                    FlashcardResponse(
-                        id=flashcard.id,
-                        question=flashcard.question,
-                        answer=flashcard.answer,
-                        difficulty=flashcard.difficulty,
-                        last_reviewed=flashcard.last_reviewed,
-                        created_at=flashcard.created_at,
-                        flashcard_type=flashcard.flashcard_type,
-                        context_notes=flashcard.context_notes,
-                        tags=flashcard.tags or [],
-                        review_count=flashcard.review_count,
-                        mastery_level=flashcard.mastery_level,
-                        last_performance=flashcard.last_performance,
-                    )
-                )
-
-            return FlashcardGenerationResponse(
-                flashcard_set_id=flashcard_set.id,
-                cards=saved_flashcards,
-                context_notes=context_notes,
-                total_tokens_used=total_tokens,
-            )
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Mode must be 'single' or 'context'",
-            )
+        return FlashcardGenerationResponse(
+            flashcard_set_id=flashcard_set.id, cards=saved_flashcards
+        )
 
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to generate flashcards: {e!s}",
-        ) from e
-
-
-@app.post(
-    "/flashcards/{flashcard_id}/review/enhanced", response_model=FlashcardReviewResult
-)
-async def review_flashcard_enhanced(
-    flashcard_id: uuid.UUID,
-    review_data: FlashcardDetailedReview,
-    request: Request = None,
-    user_id: uuid.UUID = Depends(get_current_user_id),
-    db: Session = Depends(get_db),
-):
-    """Enhanced flashcard review with SRS and detailed evaluation"""
-    await check_rate_limit(request, str(user_id))
-
-    try:
-        # Get flashcard
-        flashcard = db.query(Flashcard).filter(Flashcard.id == flashcard_id).first()
-        if not flashcard:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Flashcard not found"
-            )
-
-        # Determine quality rating (manual override or AI evaluation)
-        quality_rating = review_data.quality_rating
-        ai_score = None
-        verdict = None
-        feedback = None
-        confidence = None
-
-        if quality_rating is None:
-            # Enhanced AI evaluation based on answer similarity and content
-            typed_answer = review_data.typed_answer.lower().strip()
-            correct_answer = flashcard.answer.lower().strip()
-
-            # Calculate similarity score (0-100)
-            if typed_answer == correct_answer:
-                similarity_score = 100
-            else:
-                # Enhanced scoring algorithm
-                typed_words = set(typed_answer.split())
-                correct_words = set(correct_answer.split())
-
-                if len(correct_words) == 0:
-                    similarity_score = 0
-                else:
-                    # Word overlap scoring
-                    overlap = len(typed_words.intersection(correct_words))
-                    word_similarity = (overlap / len(correct_words)) * 100
-
-                    # Length similarity (penalize very short answers)
-                    length_ratio = len(typed_answer) / max(len(correct_answer), 1)
-                    length_score = min(100, length_ratio * 100)
-
-                    # Combined score with weights
-                    similarity_score = (word_similarity * 0.7) + (length_score * 0.3)
-
-                    # Bonus for partial matches
-                    if overlap > 0 and overlap < len(correct_words):
-                        similarity_score = min(100, similarity_score + 10)
-
-                    # Penalty for completely wrong answers
-                    if overlap == 0:
-                        similarity_score = max(0, similarity_score - 20)
-
-            # Map similarity to quality rating (1-5) with better thresholds
-            if similarity_score >= 95:
-                quality_rating = 5  # Excellent - Nearly perfect
-            elif similarity_score >= 80:
-                quality_rating = 4  # Good - Most key points covered
-            elif similarity_score >= 60:
-                quality_rating = 3  # Partial - Some key points covered
-            elif similarity_score >= 30:
-                quality_rating = 2  # Poor - Few key points covered
-            else:
-                quality_rating = 1  # Very Poor - Almost no key points
-
-        # Update SRS
-        srs_entry = update_srs_after_review(db, flashcard_id, user_id, quality_rating)
-
-        # Update flashcard progress
-        flashcard.review_count += 1
-        flashcard.last_reviewed = datetime.now(UTC)
-
-        # Map quality to performance score
-        performance_map = {0: 0, 1: 20, 2: 40, 3: 60, 4: 80, 5: 100}
-        performance_score = performance_map.get(quality_rating, 60)
-        flashcard.last_performance = performance_score
-
-        # Update mastery level
-        if performance_score >= 80:
-            flashcard.mastery_level = min(100, flashcard.mastery_level + 20)
-        elif performance_score < 50:
-            flashcard.mastery_level = max(0, flashcard.mastery_level - 10)
-
-        # Update tags based on performance
-        if not flashcard.tags:
-            flashcard.tags = []
-
-        if performance_score >= 80 and srs_entry.repetitions >= 3:
-            if "recently_learned" not in flashcard.tags:
-                flashcard.tags.append("recently_learned")
-        elif performance_score < 50 and "recently_learned" in flashcard.tags:
-            flashcard.tags.remove("recently_learned")
-
-        db.commit()
-
-        # Record review event
-        with contextlib.suppress(Exception):
-            record_event(db, user_id, "FLASHCARD_REVIEWED", target_id=flashcard_id)
-
-        # Generate feedback based on LLM evaluation
-        if (
-            "feedback" in locals()
-            and feedback != "AI evaluation completed with fallback scoring"
-        ):
-            # Use LLM-generated feedback
-            pass
-        else:
-            # Fallback feedback generation
-            if quality_rating >= 4:
-                feedback = "Excellent! You've mastered this concept."
-            elif quality_rating == 3:
-                feedback = "Good job! Keep practicing to improve."
-            else:
-                feedback = (
-                    "Keep studying this material. Review the answer and try again."
-                )
-
-        # Create SRS data response
-        srs_data = FlashcardSRSData(
-            flashcard_id=flashcard_id,
-            efactor=srs_entry.efactor / 100.0,  # Convert back to float
-            interval_days=srs_entry.interval_days,
-            due_date=srs_entry.due_date,
-            repetitions=srs_entry.repetitions,
-            next_review_date=srs_entry.due_date,
-        )
-
-        return FlashcardReviewResult(
-            flashcard_id=flashcard_id,
-            ai_score=ai_score if ai_score is not None else performance_score,
-            verdict=verdict
-            if verdict is not None
-            else (
-                "correct"
-                if quality_rating >= 4
-                else "partial"
-                if quality_rating >= 3
-                else "incorrect"
-            ),
-            feedback=feedback if feedback is not None else "Evaluation completed",
-            missing_points=[],  # TODO: Extract from LLM response
-            confidence=confidence if confidence is not None else 80,
-            next_review_date=srs_entry.due_date,
-            srs_data=srs_data,
-            tags_updated=flashcard.tags or [],
-        )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to review flashcard: {e!s}",
         ) from e
 
 
@@ -2227,9 +1206,7 @@ async def get_flashcard_sets(
         set_infos.append(
             FlashcardSetInfo(
                 id=set_item.id,
-                mode=set_item.mode,
                 seed_note_id=set_item.seed_note_id,
-                neighbor_note_ids=set_item.neighbor_note_ids or [],
                 created_at=set_item.created_at,
                 flashcard_count=flashcard_count,
             )
@@ -2250,23 +1227,7 @@ async def get_due_flashcards_srs_endpoint(
 
     flashcards = get_due_flashcards_srs(db, user_id, limit)
 
-    return [
-        FlashcardResponse(
-            id=flashcard.id,
-            question=flashcard.question,
-            answer=flashcard.answer,
-            difficulty=flashcard.difficulty,
-            last_reviewed=flashcard.last_reviewed,
-            created_at=flashcard.created_at,
-            flashcard_type=flashcard.flashcard_type,
-            context_notes=flashcard.context_notes,
-            tags=flashcard.tags or [],
-            review_count=flashcard.review_count,
-            mastery_level=flashcard.mastery_level,
-            last_performance=flashcard.last_performance,
-        )
-        for flashcard in flashcards
-    ]
+    return [_flashcard_response(flashcard) for flashcard in flashcards]
 
 
 @app.post("/flashcards/archive/mastered")
@@ -2308,12 +1269,13 @@ async def archive_mastered_flashcards_endpoint(
 async def get_notes_graph(
     request: Request,
     user_id: uuid.UUID = Depends(get_current_user_id),
+    course_id: uuid.UUID | None = Depends(optional_owned_course_id),
     db: Session = Depends(get_db),
 ):
-    """Get graph visualization of notes"""
+    """Get graph visualization of all of a user's notes, optionally one course's"""
     await check_rate_limit(request, str(user_id))
 
-    notes = get_notes_by_user(db, user_id)
+    notes = get_notes_by_user(db, user_id, course_id=course_id)
 
     if len(notes) < 2:
         return GraphResponse(
@@ -2337,10 +1299,12 @@ async def get_notes_graph(
     notes_data = [
         {"id": note.id, "title": note.title, "content": note.content} for note in notes
     ]
+    note_ids = [note.id for note in notes]
+    in_graph = set(note_ids)
 
     # Calculate connections
     if settings.similarity_backend == "embeddings":
-        connections = find_embedding_connections(db, [note.id for note in notes])
+        connections = find_embedding_connections(db, note_ids)
     else:
         connections = calculate_note_similarities(notes_data)
 
@@ -2369,9 +1333,11 @@ async def get_notes_graph(
         for conn in connections
     ]
 
-    # Merge manual links
-    links = get_links_for_user_notes(db, [n.id for n in notes])
+    # Merge manual links that stay inside the graph
+    links = get_links_for_user_notes(db, note_ids)
     for link_row in links:
+        if link_row.to_note_id not in in_graph:
+            continue
         graph_connections.append(
             NoteConnection(
                 source_id=link_row.from_note_id,
@@ -2382,8 +1348,10 @@ async def get_notes_graph(
         )
 
     # Merge stored similarities (authoritative values for edge thickness)
-    sims = get_similarities_for_notes(db, [n.id for n in notes])
+    sims = get_similarities_for_notes(db, note_ids)
     for s in sims:
+        if s.note_a_id not in in_graph or s.note_b_id not in in_graph:
+            continue
         graph_connections.append(
             NoteConnection(
                 source_id=s.note_a_id,
@@ -2398,130 +1366,7 @@ async def get_notes_graph(
     )
 
 
-# Keyword suggestion endpoint (local, cheap)
-@app.get("/notes/{note_id}/keywords", response_model=KeywordsSuggestResponse)
-async def suggest_keywords(
-    note_id: uuid.UUID,
-    request: Request,
-    user_id: uuid.UUID = Depends(get_current_user_id),
-    db: Session = Depends(get_db),
-):
-    await check_rate_limit(request, str(user_id))
-    note = get_note_by_id(db, note_id, user_id)
-    if not note:
-        raise HTTPException(status_code=404, detail="Note not found")
-    word_count = len((note.content or "").split())
-    max_keywords = 8 if word_count < 400 else 12 if word_count < 1200 else 18
-    keywords = ai_service.extract_keywords(note.content, max_keywords=max_keywords)
-    return KeywordsSuggestResponse(note_id=note.id, keywords=keywords)
-
-
-# Profile/Events endpoints
-@app.get("/api/profile/summary", response_model=ProfileSummaryResponse)
-async def profile_summary(
-    request: Request,
-    user_id: uuid.UUID = Depends(get_current_user_id),
-    db: Session = Depends(get_db),
-):
-    await check_rate_limit(request, str(user_id))
-    totals = get_totals(db, user_id)
-    current_streak, best_streak = compute_streaks(db, user_id)
-
-    # activity windows
-    now = datetime.now(UTC)
-    d7 = now - timedelta(days=7)
-    d30 = now - timedelta(days=30)
-    a7_rows = get_activity_counts(db, user_id, d7, now, kind="all")
-    a30_rows = get_activity_counts(db, user_id, d30, now, kind="all")
-
-    return ProfileSummaryResponse(
-        notes_created=totals["notes_created"],
-        notes_reviewed=totals["notes_reviewed"],
-        flashcards_created=totals["flashcards_created"],
-        flashcards_reviewed=totals["flashcards_reviewed"],
-        current_streak=current_streak,
-        best_streak=best_streak,
-        activity_7d=sum(r[1] for r in a7_rows),
-        activity_30d=sum(r[1] for r in a30_rows),
-    )
-
-
-@app.get("/api/profile/activity", response_model=ActivityResponse)
-async def profile_activity(
-    from_date: str,
-    to_date: str,
-    kind: str = "all",
-    request: Request = None,
-    user_id: uuid.UUID = Depends(get_current_user_id),
-    db: Session = Depends(get_db),
-):
-    await check_rate_limit(request, str(user_id))
-    # Parse dates as UTC-midnight boundaries
-    start = datetime.fromisoformat(from_date).replace(tzinfo=UTC)
-    end_inclusive = datetime.fromisoformat(to_date).replace(tzinfo=UTC)
-    # Set end to the end of the day (23:59:59.999999) to include all activity on that date
-    end = end_inclusive.replace(hour=23, minute=59, second=59, microsecond=999999)
-
-    # Try to use daily aggregates first; fall back to on-the-fly if missing
-    agg_rows = (
-        db.query(ActivityDaily.day, ActivityDaily.count)
-        .filter(
-            ActivityDaily.user_id == user_id,
-            ActivityDaily.day >= start.date(),
-            ActivityDaily.day <= end_inclusive.date(),
-            ActivityDaily.kind == kind,
-        )
-        .order_by(ActivityDaily.day)
-        .all()
-    )
-    if agg_rows:
-        rows = [(d, c, None) for (d, c) in agg_rows]
-    else:
-        rows = get_activity_counts(db, user_id, start, end, kind=kind)
-
-    # Materialize day list for continuity
-    days_out: list[ActivityDayCount] = []
-    cursor = start.date()
-    while cursor <= end_inclusive.date():
-        # find row for cursor
-        found = next((r for r in rows if r[0].date() == cursor), None)
-        if found:
-            days_out.append(
-                ActivityDayCount(
-                    date=str(cursor),
-                    count=int(found[1]),
-                    top_type=(str(found[2]) if len(found) > 2 and found[2] else None),
-                )
-            )
-        else:
-            days_out.append(ActivityDayCount(date=str(cursor), count=0, top_type=None))
-        cursor = cursor + timedelta(days=1)
-
-    return ActivityResponse(
-        from_date=from_date, to_date=to_date, kind=kind, days=days_out
-    )
-
-
-@app.get("/api/profile/recent", response_model=list[EventItem])
-async def profile_recent(
-    request: Request,
-    user_id: uuid.UUID = Depends(get_current_user_id),
-    db: Session = Depends(get_db),
-):
-    await check_rate_limit(request, str(user_id))
-    events = get_recent_events(db, user_id, limit=10)
-    return [
-        EventItem(
-            id=e.id,
-            event_type=e.event_type,
-            occurred_at=e.occurred_at,
-            target_id=e.target_id,
-            metadata=getattr(e, "event_metadata", None),
-        )
-        for e in events
-    ]
-
-
+# Profile endpoints
 @app.post("/api/profile/export")
 async def profile_export(
     request: Request,
@@ -2564,66 +1409,6 @@ async def profile_export(
             )
 
     return out
-
-
-@app.post("/api/events", response_model=SuccessResponse)
-async def ingest_event(
-    request: Request,
-    body: EventIngestRequest,
-    user_id: uuid.UUID = Depends(get_current_user_id),
-    db: Session = Depends(get_db),
-):
-    await check_rate_limit(request, str(user_id))
-    try:
-        record_event(
-            db,
-            user_id=user_id,
-            event_type=body.event_type,
-            target_id=body.target_id,
-            metadata=body.metadata,
-            occurred_at=body.occurred_at,
-        )
-        return SuccessResponse(message="Event recorded")
-    except Exception as e:
-        raise HTTPException(
-            status_code=400, detail=f"Failed to record event: {e}"
-        ) from e
-
-
-@app.post("/api/profile/aggregate", response_model=SuccessResponse)
-async def profile_aggregate(
-    request: Request,
-    user_id: uuid.UUID = Depends(get_current_user_id),
-    db: Session = Depends(get_db),
-):
-    """Compute daily aggregates for the authenticated user over all time.
-    Dev-friendly: safe to run repeatedly (upserts).
-    """
-    await check_rate_limit(request, str(user_id))
-    # Use raw SQL for concise upsert aggregates
-    for kind, filter_clause in (
-        ("all", ""),
-        ("notes", "AND event_type IN ('NOTE_CREATED','NOTE_REVIEWED')"),
-        ("flashcards", "AND event_type IN ('FLASHCARD_CREATED','FLASHCARD_REVIEWED')"),
-    ):
-        stmt = sql_text(
-            f"""
-            INSERT INTO activity_daily (user_id, day, kind, count)
-            SELECT :uid AS user_id,
-                   DATE(occurred_at AT TIME ZONE 'UTC') AS day,
-                   :kind AS kind,
-                   COUNT(*) AS count
-            FROM events
-            WHERE user_id = :uid
-            {filter_clause}
-            GROUP BY DATE(occurred_at AT TIME ZONE 'UTC')
-            ON CONFLICT (user_id, day, kind)
-            DO UPDATE SET count = EXCLUDED.count;
-            """
-        )
-        db.execute(stmt, {"uid": str(user_id), "kind": kind})
-    db.commit()
-    return SuccessResponse(message="Aggregates updated")
 
 
 # Image upload endpoint for pasted images (separate from static mount)
@@ -2679,7 +1464,6 @@ async def get_profile_settings(
         username=user.username,
         verified=user.verified,
         has_password=bool(user.password_hash),
-        plan=user.plan,
         created_at=user.created_at,
         updated_at=user.updated_at,
     )
@@ -2704,12 +1488,6 @@ async def update_profile_settings(
         existing_user = get_user_by_username(db, profile_update.username)
         if existing_user and existing_user.id != user_id:
             raise HTTPException(status_code=400, detail="Username already taken")
-
-    # Check if email is being changed and if it's available
-    if profile_update.email and profile_update.email != user.email:
-        existing_user = get_user_by_email(db, profile_update.email)
-        if existing_user and existing_user.id != user_id:
-            raise HTTPException(status_code=400, detail="Email already taken")
 
     # Update password if provided
     if profile_update.new_password:
@@ -2736,8 +1514,6 @@ async def update_profile_settings(
     update_data = {}
     if profile_update.username:
         update_data["username"] = profile_update.username
-    if profile_update.email:
-        update_data["email"] = profile_update.email
     if profile_update.new_password:
         update_data["password_hash"] = hashed
 
@@ -2753,7 +1529,6 @@ async def update_profile_settings(
         username=updated_user.username,
         verified=updated_user.verified,
         has_password=bool(updated_user.password_hash),
-        plan=updated_user.plan,
         created_at=updated_user.created_at,
         updated_at=updated_user.updated_at,
     )
@@ -2842,18 +1617,17 @@ async def confirm_account_deletion(
     if not user_id:
         raise HTTPException(status_code=400, detail="Invalid token payload")
 
-    user = get_user_by_id(db, uuid.UUID(user_id))
+    user_uuid = uuid.UUID(user_id)
+    user = get_user_by_id(db, user_uuid)
     if not user:
-        # Already gone
+        # Already gone; a retry still removes files an interrupted deletion left behind
+        get_document_storage().delete_user_files(user_uuid)
         return SuccessResponse(message="Account deleted")
 
     # Delete user-related data (DB-level, handle FKs manually to avoid violations)
     uid = str(user.id)
     try:
-        # Delete review and SRS data first (depend on flashcards/users)
-        db.execute(
-            sql_text("DELETE FROM flashcard_reviews WHERE user_id = :uid"), {"uid": uid}
-        )
+        # Delete SRS data first (depends on flashcards/users)
         db.execute(
             sql_text("DELETE FROM flashcard_srs WHERE user_id = :uid"), {"uid": uid}
         )
@@ -2881,24 +1655,14 @@ async def confirm_account_deletion(
         )
         db.execute(sql_text("DELETE FROM notes WHERE user_id = :uid"), {"uid": uid})
 
-        # Delete pending email changes, activity, events
-        db.execute(
-            sql_text("DELETE FROM pending_email_changes WHERE user_id = :uid"),
-            {"uid": uid},
-        )
-        db.execute(
-            sql_text("DELETE FROM activity_daily WHERE user_id = :uid"), {"uid": uid}
-        )
-        db.execute(sql_text("DELETE FROM events WHERE user_id = :uid"), {"uid": uid})
-
-        # Finally delete the user
+        # Finally delete the user; courses and documents go with it by cascade
         db.delete(user)
         db.commit()
     except Exception:
         db.rollback()
         raise
 
-    documents.get_document_storage().delete_user_files(uid)
+    get_document_storage().delete_user_files(uid)
     return SuccessResponse(message="Account deleted")
 
 

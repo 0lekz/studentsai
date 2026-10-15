@@ -62,13 +62,6 @@ class Settings(BaseSettings):
     daily_ai_request_limit: int = 100
     ai_requests_per_hour: int = 100  # Hourly AI request limit
 
-    # Note similarity
-    similarity_backend: Literal["tfidf", "embeddings"] = "tfidf"
-    embedding_backend: Literal["fastembed", "fake"] = "fastembed"
-    embedding_model: str = "BAAI/bge-small-en-v1.5"
-    embedding_cache_dir: str = "~/.cache/fastembed"
-    embedding_similarity_threshold: float = 0.7
-
     # LLM provider layer; model and base URL default to the provider's own
     llm_provider: Literal["openai", "anthropic", "fake"] = "fake"
     llm_model: str | None = None
@@ -77,6 +70,13 @@ class Settings(BaseSettings):
     llm_timeout_seconds: float = 120.0
     llm_max_retries: int = 2
     llm_reasoning_effort: str | None = None
+
+    # Note similarity
+    similarity_backend: Literal["tfidf", "embeddings"] = "tfidf"
+    embedding_backend: Literal["fastembed", "fake"] = "fastembed"
+    embedding_model: str = "BAAI/bge-small-en-v1.5"
+    embedding_cache_dir: str = "~/.cache/fastembed"
+    embedding_similarity_threshold: float = 0.7
 
     # Rate Limiting
     rate_limit_requests: int = 100
