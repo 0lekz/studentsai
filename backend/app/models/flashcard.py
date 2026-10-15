@@ -89,8 +89,12 @@ class Flashcard(Base):
         nullable=True,
         index=True,
     )
-    # Becomes a foreign key to concepts once that table exists
-    concept_id = Column(UUID(as_uuid=True), nullable=True)
+    concept_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("concepts.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
 
     # Relationships
     note = relationship("Note", back_populates="flashcards")

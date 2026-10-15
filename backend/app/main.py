@@ -15,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api import (
     auth,
+    concepts,
     courses,
     documents,
     flashcards,
@@ -32,6 +33,7 @@ from app.db.session import create_tables
 CORS_ORIGIN_PATTERN = r"https://([a-zA-Z0-9-]+\.)?(studentsai\.org|vercel\.app)$"
 ROUTERS = (
     courses,
+    concepts,
     documents,
     health,
     auth,

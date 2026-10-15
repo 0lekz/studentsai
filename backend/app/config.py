@@ -78,6 +78,12 @@ class Settings(BaseSettings):
     embedding_cache_dir: str = "~/.cache/fastembed"
     embedding_similarity_threshold: float = 0.7
 
+    # Concepts; thresholds are cosine similarities of concept-name embeddings
+    concept_dedup_threshold: float = 0.93
+    concept_related_threshold: float = 0.8
+    concept_max_prerequisites: int = 2
+    concept_extraction_concurrency: int = 4
+
     # Rate Limiting
     rate_limit_requests: int = 100
     rate_limit_window: int = 3600  # seconds

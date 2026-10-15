@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.document import Document, DocumentChunk, DocumentStatus
+from app.services.concepts.catalog import prune_orphan_concepts
 from app.services.ingestion.extraction import (
     ExtractionError,
     ExtractionResult,
@@ -80,6 +81,7 @@ def get_document(
 
 def delete_document(db: Session, storage: DocumentStorage, document: Document) -> None:
     db.delete(document)
+    prune_orphan_concepts(db, document.course_id)
     db.commit()
     storage.delete(document.storage_path)
 
