@@ -93,7 +93,7 @@ export function PracticeStart({ courseId, readiness, size, onSizeChange, error, 
           Practice session
         </h2>
         <p className="mt-1 text-body-lg text-muted-foreground">
-          One question at a time, with feedback that points to the page the answer comes from. Due reviews come first, then your weakest concepts.
+          One question at a time, with feedback that points to the page the answer comes from. Questions that are due come first, then your weakest concepts.
         </p>
         {error && (
           <Alert variant="error" className="mt-5">

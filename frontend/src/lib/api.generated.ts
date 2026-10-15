@@ -159,6 +159,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/questions/{question_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Question
+         * @description One question as a practice session shows it, for reloading a session screen.
+         */
+        get: operations["get_question_questions__question_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/questions/{question_id}/answer": {
         parameters: {
             query?: never;
@@ -1207,10 +1227,15 @@ export interface components {
         /**
          * AskResponse
          * @description `[n]` markers in the Markdown answer refer to `citations[n - 1]`.
+         *
+         *     `covered` is true when the answer is grounded in cited course chunks, and
+         *     false when the material does not cover the question.
          */
         AskResponse: {
             /** Answer */
             answer: string;
+            /** Covered */
+            covered: boolean;
             /** Citations */
             citations: components["schemas"]["Citation"][];
         };
@@ -1914,7 +1939,12 @@ export interface components {
         };
         /**
          * PracticeQuestion
-         * @description A question without its answer; `source` is null for cards written from notes.
+         * @description A question as practice shows it.
+         *
+         *     `reference_answer` is set only for recall questions, which the student
+         *     checks against it; other kinds reveal it in the answer's grade. `source` is
+         *     null only for cards written from notes; deleting a document deletes the
+         *     questions generated from it.
          */
         PracticeQuestion: {
             /**
@@ -1927,6 +1957,8 @@ export interface components {
             prompt: string;
             /** Choices */
             choices: string[] | null;
+            /** Reference Answer */
+            reference_answer: string | null;
             concept: components["schemas"]["ConceptRef"] | null;
             source: components["schemas"]["QuestionSource"] | null;
         };
@@ -2608,6 +2640,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["QuestionList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_question_questions__question_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                question_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PracticeQuestion"];
                 };
             };
             /** @description Validation Error */

@@ -15,7 +15,7 @@ function chunksOf(documentId: string): Promise<DocumentChunk[]> {
   return pending
 }
 
-type ChunkState = { status: 'loading' } | { status: 'ready'; chunk: DocumentChunk | null } | { status: 'error'; message: string }
+type ChunkState = { status: 'loading' } | { status: 'ready'; chunk: DocumentChunk } | { status: 'error'; message: string }
 
 export function useSourceChunk(documentId: string | undefined, chunkId: string | undefined): ChunkState {
   const [state, setState] = useState<ChunkState>({ status: 'loading' })
@@ -25,7 +25,11 @@ export function useSourceChunk(documentId: string | undefined, chunkId: string |
     let cancelled = false
     setState({ status: 'loading' })
     chunksOf(documentId)
-      .then((chunks) => !cancelled && setState({ status: 'ready', chunk: chunks.find((chunk) => chunk.id === chunkId) ?? null }))
+      .then((chunks) => {
+        if (cancelled) return
+        const chunk = chunks.find((candidate) => candidate.id === chunkId)
+        setState(chunk ? { status: 'ready', chunk } : { status: 'error', message: 'This section could not be found.' })
+      })
       .catch((error) => !cancelled && setState({ status: 'error', message: error instanceof Error ? error.message : 'Could not load the source' }))
     return () => {
       cancelled = true

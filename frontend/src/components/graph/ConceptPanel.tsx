@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useState } from 'react'
 import { Loader2, Pencil, Play, Trash2 } from 'lucide-react'
 import { api, type DocumentSummary, type Citation, type Concept, type ConceptMap, type ConceptMapNode } from '@/lib/api'
-import { formatPages, pluralize } from '@/lib/format'
+import { pluralize } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import { Alert } from '@/components/ui/alert'
@@ -145,11 +145,10 @@ export function ConceptPanel({ courseId, map, node, concept, documents, onClose,
                 <SectionLabel>Where it appears</SectionLabel>
                 <ul className="mt-2 flex flex-col items-start gap-2">
                   {concept.sources.map((source) => {
-                    const citation: Citation = { ...source, filename: filenames.get(source.document_id) ?? 'Removed file', excerpt: '' }
+                    const citation: Citation = { ...source, filename: filenames.get(source.document_id) ?? '', excerpt: '' }
                     return (
                       <li key={source.chunk_id} className="max-w-full">
                         <CitationChip source={citation} onOpen={() => onOpenSource(citation)} />
-                        <span className="sr-only">{formatPages(source.page_start, source.page_end, 'long')}</span>
                       </li>
                     )
                   })}

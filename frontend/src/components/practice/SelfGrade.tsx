@@ -13,7 +13,7 @@ export const SELF_GRADES = [
 ] as const
 
 interface SelfGradeProps {
-  reference: string | null
+  reference: string
   chosen: number | null
   saving: boolean
   onGrade: (quality: number) => void
@@ -25,9 +25,7 @@ export function SelfGrade({ reference, chosen, saving, onGrade }: SelfGradeProps
     <section ref={ref} aria-label="Reference answer" className="space-y-5 rounded-card border border-border bg-surface p-5 shadow-sm">
       <div>
         <FeedbackLabel>Reference answer</FeedbackLabel>
-        <p className="mt-2 whitespace-pre-line text-body-lg text-foreground">
-          {reference ?? 'The reference answer is not available for this question. Grade yourself on how well you recalled it.'}
-        </p>
+        <p className="mt-2 whitespace-pre-line text-body-lg text-foreground">{reference}</p>
       </div>
       <div>
         <p className="text-body font-medium text-foreground">How well did you know it?</p>

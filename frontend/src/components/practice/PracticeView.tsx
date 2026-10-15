@@ -70,7 +70,7 @@ export function PracticeView({ courseId }: { courseId: string }) {
           <div role="status" className="flex flex-1 flex-col items-center justify-center gap-3 px-gutter text-center">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden />
             <p className="text-body-lg font-medium text-foreground">Picking your questions</p>
-            <p className="max-w-sm text-body text-muted-foreground">Due reviews first. New questions are written from your slides, which can take a few seconds.</p>
+            <p className="max-w-sm text-body text-muted-foreground">What is due comes first. New questions are written from your slides, which can take a few seconds.</p>
           </div>
         </SessionScreen>
       )}
@@ -86,7 +86,6 @@ export function PracticeView({ courseId }: { courseId: string }) {
         >
           <QuestionStep
             key={state.questions[state.index].id}
-            courseId={courseId}
             question={state.questions[state.index]}
             isLast={state.index === state.questions.length - 1}
             onOutcome={(outcome) => record(state.questions[state.index].id, outcome)}

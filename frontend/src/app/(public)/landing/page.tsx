@@ -72,7 +72,7 @@ export default function LandingPage() {
               <div className="mb-4 text-base uppercase tracking-[0.14em] text-muted-foreground">Twenty minutes a day</div>
               <h2 className="text-4xl font-semibold leading-tight text-foreground">Open Today, press one button</h2>
               <p className="mt-6 text-lg leading-relaxed text-muted-foreground">
-                Today gathers the reviews that are due across your courses and your weakest concepts into one session. Do it at your desk or in transit.
+                Today gathers the questions that are due across your courses and your weakest concepts into one session. Do it at your desk or in transit.
               </p>
               <ul className="mt-8 space-y-4">
                 {TODAY_POINTS.map(({ icon: Icon, text }) => (

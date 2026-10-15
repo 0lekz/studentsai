@@ -31,16 +31,18 @@ function GroundedAnswer({ result, onOpenSource }: { result: AskResult; onOpenSou
         onCitation={(number) => onOpenSource(result.citations[number - 1])}
         className="text-body-lg"
       />
-      <div className="mt-4">
-        <h3 className="text-caption font-medium uppercase tracking-wide text-muted-foreground">Sources</h3>
-        <ul className="mt-2 flex flex-wrap gap-2">
-          {result.citations.map((citation, index) => (
-            <li key={`${citation.chunk_id}-${index}`} className="max-w-full">
-              <CitationChip source={citation} number={index + 1} onOpen={() => onOpenSource(citation)} />
-            </li>
-          ))}
-        </ul>
-      </div>
+      {result.citations.length > 0 && (
+        <div className="mt-4">
+          <h3 className="text-caption font-medium uppercase tracking-wide text-muted-foreground">Sources</h3>
+          <ul className="mt-2 flex flex-wrap gap-2">
+            {result.citations.map((citation, index) => (
+              <li key={`${citation.chunk_id}-${index}`} className="max-w-full">
+                <CitationChip source={citation} number={index + 1} onOpen={() => onOpenSource(citation)} />
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   )
 }
@@ -65,7 +67,7 @@ interface AskAnswerProps {
 
 export function AskAnswer({ exchange, courseId, onRetry, onOpenSource }: AskAnswerProps) {
   return (
-    <article aria-label={`Answer to: ${exchange.question}`} className="scroll-mt-6 space-y-4">
+    <article aria-label={`Answer to: ${exchange.question}`} data-status={exchange.status} className="scroll-mt-6 space-y-4">
       <div className="flex justify-end">
         <p className="max-w-[85%] whitespace-pre-line rounded-card rounded-br-sm bg-brand-soft px-4 py-2.5 text-body-lg text-foreground">{exchange.question}</p>
       </div>
@@ -80,10 +82,10 @@ export function AskAnswer({ exchange, courseId, onRetry, onOpenSource }: AskAnsw
         </Alert>
       )}
       {exchange.status === 'answered' &&
-        (exchange.result.citations.length === 0 ? (
-          <NotCovered answer={exchange.result.answer} courseId={courseId} />
-        ) : (
+        (exchange.result.covered ? (
           <GroundedAnswer result={exchange.result} onOpenSource={onOpenSource} />
+        ) : (
+          <NotCovered answer={exchange.result.answer} courseId={courseId} />
         ))}
     </article>
   )

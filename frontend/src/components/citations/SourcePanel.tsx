@@ -27,7 +27,7 @@ function SectionText({ text: raw, excerpt }: { text: string; excerpt: string }) 
 
 function SourceBody({ citation }: { citation: Citation }) {
   const state = useSourceChunk(citation.document_id, citation.chunk_id)
-  const heading = state.status === 'ready' ? state.chunk?.heading_path.join(' › ') : undefined
+  const heading = state.status === 'ready' ? state.chunk.heading_path.join(' › ') : undefined
 
   return (
     <div className="space-y-6">
@@ -52,12 +52,7 @@ function SourceBody({ citation }: { citation: Citation }) {
               {state.message}
             </p>
           )}
-          {state.status === 'ready' &&
-            (state.chunk ? (
-              <SectionText text={state.chunk.text} excerpt={citation.excerpt} />
-            ) : (
-              <p className="text-body text-muted-foreground">This section is no longer in the course. The file may have been replaced.</p>
-            ))}
+          {state.status === 'ready' && <SectionText text={state.chunk.text} excerpt={citation.excerpt} />}
         </div>
       </section>
     </div>

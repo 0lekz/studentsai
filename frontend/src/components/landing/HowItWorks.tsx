@@ -10,7 +10,7 @@ const STEPS = [
   },
   {
     title: 'Practice every day',
-    description: 'Today lines up due reviews and your weakest concepts. Answer in your own words and get graded feedback.',
+    description: 'Today lines up the questions that are due and your weakest concepts. Answer in your own words and get graded feedback.',
   },
   {
     title: 'Ask and check',

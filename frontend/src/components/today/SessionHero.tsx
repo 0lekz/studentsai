@@ -37,7 +37,7 @@ function HeroFrame({ title, description, action, children }: { title: string; de
 export function SessionHero({ today, error, courses, onRetry }: SessionHeroProps) {
   if (error && !today) {
     return (
-      <HeroFrame title="Today’s session" description="Your reviews could not be loaded.">
+      <HeroFrame title="Today’s session" description="What is due today could not be loaded.">
         <Alert variant="error" className="mt-4 flex items-center justify-between gap-3">
           <span>{error}</span>
           <Button variant="outline" size="sm" onClick={onRetry} className="shrink-0">
@@ -50,7 +50,7 @@ export function SessionHero({ today, error, courses, onRetry }: SessionHeroProps
 
   if (!today) {
     return (
-      <HeroFrame title="Checking your reviews" description="Lining up what is due across your courses.">
+      <HeroFrame title="Checking what is due" description="Lining up today’s questions across your courses.">
         <div aria-hidden className="mt-5 h-11 w-full animate-pulse rounded-control bg-muted sm:ml-auto sm:w-40" />
       </HeroFrame>
     )
@@ -61,8 +61,8 @@ export function SessionHero({ today, error, courses, onRetry }: SessionHeroProps
     const { course_id, size } = today.suggested
     return (
       <HeroFrame
-        title={today.due_count > 0 ? `${pluralize(today.due_count, 'review')} due` : 'Ready for today’s session'}
-        description={`${suggestedCourse ? `${suggestedCourse.name}, ` : ''}${pluralize(size, 'question')}. Due reviews first, then your weakest concepts.`}
+        title={today.due_count > 0 ? `${pluralize(today.due_count, 'question')} due today` : 'Ready for today’s session'}
+        description={`${suggestedCourse ? `${suggestedCourse.name}, ` : ''}${pluralize(size, 'question')} in this session. What is due comes first, then your weakest concepts.`}
         action={
           <Button asChild size="lg" className="w-full sm:w-auto">
             <Link href={`/courses/${course_id}/practice?start=1&size=${size}`}>

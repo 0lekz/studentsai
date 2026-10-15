@@ -297,12 +297,7 @@ class APIClient {
     return this.request(`/courses/${courseId}/ask`, { method: 'POST', body: JSON.stringify(body) })
   }
 
-  // Self-graded fallback for recall questions: a question is stored as a flashcard, which carries the reference answer.
-  async getQuestionReference(courseId: string, questionId: string): Promise<string | null> {
-    const flashcards = await this.getUserFlashcards({ courseId })
-    return flashcards.find((flashcard) => flashcard.id === questionId)?.answer ?? null
-  }
-
+  // Self-graded fallback for recall questions, which are stored as flashcards on the SM-2 schedule.
   async selfGradeQuestion(questionId: string, quality: number): Promise<SrsState> {
     const { due_date, interval_days, repetitions } = await this.reviewFlashcard(questionId, quality)
     return { due_date, interval_days, repetitions }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { ArrowRight, Eye, FileText, Loader2 } from 'lucide-react'
+import { ArrowRight, Eye, FileText, Loader2, NotebookPen } from 'lucide-react'
 import { api, type AnswerBody, type AnswerResult, type Citation, type PracticeQuestion, type QuestionKind, type SrsState } from '@/lib/api'
 import { formatPages } from '@/lib/format'
 import { Alert } from '@/components/ui/alert'
@@ -23,8 +23,7 @@ type Phase =
   | { name: 'answering' }
   | { name: 'submitting' }
   | { name: 'graded'; result: AnswerResult }
-  | { name: 'revealing' }
-  | { name: 'self'; reference: string | null; quality: number | null; saving: boolean; srs: SrsState | null }
+  | { name: 'self'; reference: string; quality: number | null; saving: boolean; srs: SrsState | null }
 
 function correctChoiceIndex(question: PracticeQuestion, result: AnswerResult, chosen: number | null): number | null {
   if (result.verdict === 'correct') return chosen
@@ -34,7 +33,6 @@ function correctChoiceIndex(question: PracticeQuestion, result: AnswerResult, ch
 }
 
 interface QuestionStepProps {
-  courseId: string
   question: PracticeQuestion
   isLast: boolean
   onOutcome: (outcome: AnswerOutcome) => void
@@ -42,14 +40,15 @@ interface QuestionStepProps {
   onOpenSource: (citation: Citation) => void
 }
 
-export function QuestionStep({ courseId, question, isLast, onOutcome, onNext, onOpenSource }: QuestionStepProps) {
+export function QuestionStep({ question, isLast, onOutcome, onNext, onOpenSource }: QuestionStepProps) {
   const [typed, setTyped] = useState('')
   const [choice, setChoice] = useState<number | null>(null)
   const [phase, setPhase] = useState<Phase>({ name: 'answering' })
   const [error, setError] = useState<string | null>(null)
 
   const isChoice = question.kind === 'mcq' && (question.choices?.length ?? 0) > 0
-  const busy = phase.name === 'submitting' || phase.name === 'revealing'
+  const busy = phase.name === 'submitting'
+  const selfGradeReference = question.kind === 'recall' ? question.reference_answer : null
   const done = phase.name === 'graded' || (phase.name === 'self' && phase.srs !== null)
   const canType = phase.name === 'answering' || phase.name === 'submitting'
 
@@ -73,16 +72,9 @@ export function QuestionStep({ courseId, question, isLast, onOutcome, onNext, on
     submit({ choice_index: index })
   }
 
-  const reveal = async () => {
-    setPhase({ name: 'revealing' })
+  const reveal = (reference: string) => {
     setError(null)
-    try {
-      const reference = await api.getQuestionReference(courseId, question.id)
-      setPhase({ name: 'self', reference, quality: null, saving: false, srs: null })
-    } catch (revealError) {
-      setPhase({ name: 'answering' })
-      setError(revealError instanceof Error ? revealError.message : 'Could not load the answer')
-    }
+    setPhase({ name: 'self', reference, quality: null, saving: false, srs: null })
   }
 
   const selfGrade = async (quality: number) => {
@@ -127,14 +119,12 @@ export function QuestionStep({ courseId, question, isLast, onOutcome, onNext, on
             {question.concept && <Badge variant="brand">{question.concept.name}</Badge>}
           </div>
           <h2 className="mt-3 text-title font-semibold text-foreground sm:text-headline">{question.prompt}</h2>
-          {question.source && (
-            <p className="mt-2 flex items-center gap-1.5 text-caption text-muted-foreground">
-              <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden />
-              <span className="truncate">
-                From {question.source.filename}, {formatPages(question.source.page_start, question.source.page_end)}
-              </span>
-            </p>
-          )}
+          <p className="mt-2 flex items-center gap-1.5 text-caption text-muted-foreground">
+            {question.source ? <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden /> : <NotebookPen className="h-3.5 w-3.5 shrink-0" aria-hidden />}
+            <span className="truncate">
+              {question.source ? `From ${question.source.filename}, ${formatPages(question.source.page_start, question.source.page_end)}` : 'From your notes'}
+            </span>
+          </p>
 
           <div className="mt-6 space-y-5">
             {isChoice ? (
@@ -201,9 +191,9 @@ export function QuestionStep({ courseId, question, isLast, onOutcome, onNext, on
             <p className="flex h-11 w-full items-center justify-center text-body text-muted-foreground sm:justify-end">Grade yourself to continue</p>
           ) : (
             <>
-              {question.kind === 'recall' && (
-                <Button variant="ghost" size="lg" onClick={reveal} disabled={busy} className="shrink-0 px-4">
-                  {phase.name === 'revealing' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
+              {selfGradeReference && (
+                <Button variant="ghost" size="lg" onClick={() => reveal(selfGradeReference)} disabled={busy} className="shrink-0 px-4">
+                  <Eye className="h-4 w-4" />
                   Show answer
                 </Button>
               )}

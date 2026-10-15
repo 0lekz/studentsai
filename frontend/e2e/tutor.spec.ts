@@ -48,7 +48,7 @@ test('a new student goes from slides to a practice session, an answer with citat
   await screenshot(page, project, '23-materials-extracted')
 
   await page.goto('/today')
-  await expect(page.getByRole('heading', { name: /Ready for today.s session|reviews? due/ })).toBeVisible()
+  await expect(page.getByRole('heading', { name: /Ready for today.s session|questions? due today/ })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Cell Biology', exact: true }).last()).toBeVisible()
   await screenshot(page, project, '24-today')
 
@@ -139,7 +139,7 @@ async function askTheCourse(page: Page, project: string, annotations: Array<{ ty
   await page.getByLabel('Your question').press('Enter')
   const answer = page.getByRole('article', { name: /What happens during metaphase/ })
   const sources = answer.getByRole('heading', { name: 'Sources' })
-  await expect(sources.or(answer.getByText('Not in your materials'))).toBeVisible({ timeout: 90_000 })
+  await expect(page.locator('article[data-status="answered"]')).toHaveCount(1, { timeout: 90_000 })
   await screenshot(page, project, '35-ask-answer')
   if (await sources.isVisible()) {
     await answer.getByRole('button', { name: 'Open source 1', exact: true }).click()
