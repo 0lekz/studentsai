@@ -43,7 +43,7 @@ Every agent follows these rules in addition to its own definition.
 
 From phase 2 on, new backend code lands in the target layout from `docs/ROADMAP_V2.md` and existing code is not moved to make room for it.
 
-- ORM models in `backend/app/models/<domain>.py`, importing `Base` from `app.database`, re-exported from `backend/app/models/__init__.py`.
+- ORM models in `backend/app/models/<domain>.py`, importing `Base` from `app.db.base`, re-exported from `backend/app/models/__init__.py`.
 - Business logic in `backend/app/services/`.
 - Route handlers in `backend/app/api/<domain>.py` as an `APIRouter`, registered with one `include_router` line in `main.py`.
 - Each feature ships its own Alembic revision; the orchestrator chains revisions when parallel agents both branch from the same head.

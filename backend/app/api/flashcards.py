@@ -9,9 +9,6 @@ from fastapi import (
 )
 from sqlalchemy.orm import Session
 
-from app.ai_service import (
-    generate_flashcards_from_content,
-)
 from app.auth import (
     get_current_user_id,
     get_verified_user_id,
@@ -45,6 +42,7 @@ from app.schemas import (
     GenerateFlashcardsRequest,
     GenerateFlashcardsResponse,
 )
+from app.services.note_generation import generate_flashcards_from_content
 from app.services.scheduling import apply_flashcard_review
 
 router = APIRouter()
@@ -73,13 +71,14 @@ async def generate_flashcards(
     request_data: GenerateFlashcardsRequest,
     request: Request,
     user_id: uuid.UUID = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
 ):
     """Generate flashcards from content"""
     await check_ai_rate_limit(request, str(user_id))
 
     try:
         flashcards = await generate_flashcards_from_content(
-            request_data.content, request_data.count
+            db, request_data.content, request_data.count, user_id
         )
 
         return GenerateFlashcardsResponse(flashcards=flashcards, count=len(flashcards))
@@ -132,7 +131,7 @@ async def generate_note_flashcards(
 
     try:
         generated_flashcards = await generate_flashcards_from_content(
-            note.content, count
+            db, note.content, count, user_id
         )
 
         saved_flashcards = [
@@ -261,7 +260,7 @@ async def generate_flashcards_enhanced(
 
     try:
         generated_flashcards = await generate_flashcards_from_content(
-            note.content, request_data.count or 5
+            db, note.content, request_data.count or 5, user_id
         )
 
         flashcard_set = create_flashcard_set(db, user_id, note.id)

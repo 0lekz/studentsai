@@ -4,7 +4,6 @@ os.environ["DATABASE_URL"] = os.environ.get(
     "TEST_DATABASE_URL", "postgresql://localhost:5432/studentsai_test"
 )
 os.environ["DEBUG"] = "true"
-os.environ["ENVIRONMENT"] = "test"
 os.environ["SECRET_KEY"] = "test-secret-key"
 os.environ["ALGORITHM"] = "HS256"
 os.environ["ACCESS_TOKEN_EXPIRE_MINUTES"] = "480"
@@ -28,20 +27,27 @@ from sqlalchemy.orm import Session
 
 from app import email_service, main
 from app.api import auth as auth_api
-from app.api import flashcards as flashcards_api
-from app.api import graph as graph_api
-from app.api import notes as notes_api
 from app.config import settings
 from app.db.base import Base
 from app.db.session import engine, get_db
 from app.email_service import create_verification_token
-from app.schemas import GeneratedFlashcard
+from app.services import note_generation
 from app.services.llm.fake_client import FakeLLMClient
+from app.services.note_generation import FLASHCARDS_PURPOSE, SUMMARY_PURPOSE
 from app.services.tutor import ask as tutor_ask
 from app.services.tutor import generation as tutor_generation
 from app.services.tutor import grading as tutor_grading
 
 PASSWORD = "correct-horse-battery"
+NOTE_REPLIES = {
+    SUMMARY_PURPOSE: {"summary": "A short stub summary."},
+    FLASHCARDS_PURPOSE: {
+        "flashcards": [
+            {"question": f"Question {n}?", "answer": f"Answer {n}"}
+            for n in range(1, 21)
+        ]
+    },
+}
 
 
 @dataclass(frozen=True)
@@ -55,32 +61,6 @@ class RegisteredUser:
     @property
     def auth_header(self) -> dict[str, str]:
         return {"Authorization": f"Bearer {self.access_token}"}
-
-
-@dataclass
-class FakeAI:
-    summary: str = "A short stub summary."
-    similarities: list[dict] = field(default_factory=list)
-    calls: list[tuple[str, dict]] = field(default_factory=list)
-
-    async def summarize_content(self, content: str) -> str:
-        self.calls.append(("summarize_content", {"content": content}))
-        return self.summary
-
-    async def generate_flashcards_from_content(
-        self, content: str, count: int = 5
-    ) -> list[GeneratedFlashcard]:
-        self.calls.append(
-            ("generate_flashcards_from_content", {"content": content, "count": count})
-        )
-        return [
-            GeneratedFlashcard(question=f"Question {n}?", answer=f"Answer {n}")
-            for n in range(1, count + 1)
-        ]
-
-    def calculate_note_similarities(self, notes: list[dict]) -> list[dict]:
-        self.calls.append(("calculate_note_similarities", {"notes": notes}))
-        return self.similarities
 
 
 @dataclass(frozen=True)
@@ -158,18 +138,16 @@ def network_guard(monkeypatch) -> Iterator[None]:
 
 
 @pytest.fixture(autouse=True)
-def fake_ai(monkeypatch) -> FakeAI:
-    fake = FakeAI()
-    monkeypatch.setattr(notes_api, "summarize_content", fake.summarize_content)
-    monkeypatch.setattr(
-        flashcards_api,
-        "generate_flashcards_from_content",
-        fake.generate_flashcards_from_content,
-    )
-    monkeypatch.setattr(
-        graph_api, "calculate_note_similarities", fake.calculate_note_similarities
-    )
-    return fake
+def notes_llm(monkeypatch) -> Callable[..., FakeLLMClient]:
+    """Script the model behind note summaries and flashcards; until a test does, it answers `NOTE_REPLIES`."""
+
+    def script(replies: dict | None = None) -> FakeLLMClient:
+        client = FakeLLMClient({**NOTE_REPLIES, **(replies or {})})
+        monkeypatch.setattr(note_generation, "get_llm_client", lambda: client)
+        return client
+
+    script()
+    return script
 
 
 @pytest.fixture(autouse=True)

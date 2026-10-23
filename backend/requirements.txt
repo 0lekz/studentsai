@@ -8,16 +8,12 @@ sqlalchemy==2.0.23
 alembic==1.12.1
 
 # Authentication and security
-python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 bcrypt==4.0.1
 python-multipart==0.0.6
 PyJWT==2.9.0
 
-# OAuth (NEW)
-google-auth==2.23.4
-google-auth-oauthlib==1.1.0
-google-auth-httplib2==0.1.1
+# Google OAuth, called over plain HTTP
 requests==2.31.0
 
 # AI and ML
@@ -28,27 +24,13 @@ numpy>=1.26.0
 fastembed==0.9.0
 pgvector==0.5.1
 
-# Environment and configuration
-python-dotenv==1.0.0
+# Configuration and validation
 pydantic==2.5.0
 pydantic-settings==2.1.0
 email-validator==2.2.0
 
-# CORS and middleware
-# CORS is built into FastAPI, no additional package needed
-
-# Development and testing
-pytest==7.4.3
-pytest-asyncio==0.21.1
-httpx==0.25.2
-
-# Utilities
-python-dateutil==2.8.2
-
 # Document ingestion
 pymupdf==1.28.2
 
-# Email verification (NEW)
-fastapi-mail==1.4.1
+# Email
 sendgrid==6.10.0
-

@@ -20,7 +20,7 @@ from typing import Any
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
-from app.database import get_db
+from app.db.session import get_db
 from app.services.llm import LLMClient, get_llm_client
 from tests.eval.llm.judge import (
     CRITERIA,

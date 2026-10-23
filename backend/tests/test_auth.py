@@ -1,8 +1,8 @@
 import uuid
 from datetime import datetime, timedelta
 
+import jwt
 import pytest
-from jose import jwt
 
 from app.auth import create_access_token
 from app.config import settings

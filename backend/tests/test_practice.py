@@ -367,7 +367,7 @@ class TestGeneratedQuestionsAsFlashcards:
         assert {card["id"] for card in due} == {q["id"] for q in generated}
 
     def test_note_routes_ignore_questions_without_a_note(
-        self, auth_client, course, document, llm, create_note, fake_ai
+        self, auth_client, course, document, llm, create_note
     ):
         generate(auth_client, course, count=1)
         note = create_note(auth_client, course_id=course["id"])
@@ -407,7 +407,7 @@ class TestGetQuestion:
         assert auth_client.get(f"/questions/{MISSING}").status_code == 404
 
     def test_deleting_a_document_deletes_the_questions_generated_from_it(
-        self, auth_client, course, document, llm, create_note, fake_ai, db_session
+        self, auth_client, course, document, llm, create_note, db_session
     ):
         [recall, mcq] = start_session(auth_client, course, size=2).json()["questions"]
         assert recall["source"]["document_id"] == document["id"]
@@ -647,7 +647,7 @@ class TestAnswer:
         assert answer(auth_client, MISSING, answer="x").status_code == 404
 
     def test_a_card_written_from_a_note_has_no_source(
-        self, auth_client, create_note, course, fake_ai, llm
+        self, auth_client, create_note, course, llm
     ):
         note = create_note(auth_client, course_id=course["id"])
         made = auth_client.post(

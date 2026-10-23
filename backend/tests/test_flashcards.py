@@ -2,12 +2,27 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from app.models import Document, DocumentChunk, Flashcard, FlashcardSRS
+from app.models import (
+    Document,
+    DocumentChunk,
+    Flashcard,
+    FlashcardSRS,
+    LLMCacheEntry,
+    LLMCall,
+)
 from app.repositories.flashcards import create_flashcard
 from app.repositories.notes import create_note as insert_note
 from app.services.courses import create_course
+from app.services.llm import LLMUnavailableError
+from app.services.note_generation import (
+    FLASHCARDS_PROMPT_VERSION,
+    FLASHCARDS_PURPOSE,
+    flashcards_system_prompt,
+    notes_messages,
+)
 
 MISSING_ID = "00000000-0000-0000-0000-000000000000"
 
@@ -42,10 +57,16 @@ def utc_days_from_today(days: int) -> str:
     return (datetime.now(UTC).date() + timedelta(days=days)).isoformat()
 
 
-def test_generate_for_note_saves_the_ai_cards(auth_client, note, fake_ai):
-    response = auth_client.post(
-        f"/notes/{note['id']}/flashcards/generate", params={"count": 3}
+def generate_for_note(client, note: dict, count: int = 5):
+    return client.post(
+        f"/notes/{note['id']}/flashcards/generate", params={"count": count}
     )
+
+
+def test_generate_for_note_saves_the_ai_cards(auth_client, note, notes_llm, user):
+    llm = notes_llm()
+
+    response = generate_for_note(auth_client, note, count=3)
 
     assert response.status_code == 200
     cards = response.json()
@@ -56,12 +77,119 @@ def test_generate_for_note_saves_the_ai_cards(auth_client, note, fake_ai):
     ]
     assert all(c["review_count"] == 0 for c in cards)
     assert all(c["course_id"] is None for c in cards)
-    assert fake_ai.calls == [
-        (
-            "generate_flashcards_from_content",
-            {"content": note["content"], "count": 3},
-        )
+    [request] = llm.requests_for(FLASHCARDS_PURPOSE)
+    assert request.system == flashcards_system_prompt(3)
+    assert request.messages == tuple(notes_messages(note["content"]))
+    assert str(request.user_id) == user.id
+
+
+def test_the_flashcards_prompt_asks_for_the_requested_count():
+    assert "Write 1 flashcard on" in flashcards_system_prompt(1)
+    assert "Write 7 flashcards on" in flashcards_system_prompt(7)
+
+
+def test_generated_cards_are_trimmed_and_blank_ones_dropped(
+    auth_client, note, notes_llm
+):
+    notes_llm(
+        {
+            FLASHCARDS_PURPOSE: {
+                "flashcards": [
+                    {
+                        "question": " What powers the cell? ",
+                        "answer": "Mitochondria.\n",
+                    },
+                    {"question": "  ", "answer": "An answer without a question."},
+                    {"question": "What stores energy?", "answer": ""},
+                    {"question": "Where is DNA kept?", "answer": "In the nucleus."},
+                ]
+            }
+        }
+    )
+
+    cards = generate_for_note(auth_client, note).json()
+
+    assert [(c["question"], c["answer"]) for c in cards] == [
+        ("What powers the cell?", "Mitochondria."),
+        ("Where is DNA kept?", "In the nucleus."),
     ]
+
+
+def test_generating_again_from_unchanged_content_replays_the_cached_cards(
+    auth_client, note, notes_llm, db_session
+):
+    llm = notes_llm()
+
+    first = generate_for_note(auth_client, note, count=2).json()
+    second = generate_for_note(auth_client, note, count=2).json()
+
+    assert [(c["question"], c["answer"]) for c in second] == [
+        (c["question"], c["answer"]) for c in first
+    ]
+    assert len(llm.requests_for(FLASHCARDS_PURPOSE)) == 1
+    calls = db_session.scalars(
+        select(LLMCall).where(LLMCall.purpose == FLASHCARDS_PURPOSE)
+    ).all()
+    assert sorted(call.cached for call in calls) == [False, True]
+
+
+def test_editing_the_note_or_the_count_asks_the_model_again(
+    auth_client, note, notes_llm
+):
+    llm = notes_llm()
+    generate_for_note(auth_client, note, count=2)
+    generate_for_note(auth_client, note, count=3)
+    auth_client.put(f"/notes/{note['id']}", json={"content": "Ribosomes make protein."})
+
+    generate_for_note(auth_client, note, count=3)
+
+    assert [
+        (request.system, request.messages)
+        for request in llm.requests_for(FLASHCARDS_PURPOSE)
+    ] == [
+        (flashcards_system_prompt(2), tuple(notes_messages(note["content"]))),
+        (flashcards_system_prompt(3), tuple(notes_messages(note["content"]))),
+        (flashcards_system_prompt(3), tuple(notes_messages("Ribosomes make protein."))),
+    ]
+
+
+def test_flashcards_cache_entries_carry_the_prompt_version(
+    auth_client, note, db_session
+):
+    generate_for_note(auth_client, note)
+
+    assert db_session.scalars(select(LLMCacheEntry.prompt_version)).all() == [
+        FLASHCARDS_PROMPT_VERSION
+    ]
+
+
+@pytest.mark.parametrize(
+    "request_cards",
+    [
+        lambda client, note: generate_for_note(client, note),
+        lambda client, note: client.post(
+            "/flashcards/generate", json={"note_id": note["id"]}
+        ),
+        lambda client, note: client.post(
+            "/ai/flashcards", json={"content": note["content"]}
+        ),
+    ],
+    ids=["note", "set", "ai"],
+)
+def test_a_model_outage_returns_500_and_saves_no_cards(
+    auth_client, note, notes_llm, request_cards
+):
+    def outage(request):
+        raise LLMUnavailableError("overloaded")
+
+    notes_llm({FLASHCARDS_PURPOSE: outage})
+
+    response = request_cards(auth_client, note)
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Failed to generate flashcards: overloaded"}
+    assert user_cards(auth_client) == []
+    assert auth_client.get("/flashcards/sets").json() == []
 
 
 def test_flashcards_carry_no_mastery_or_contextual_fields(flashcard):
@@ -195,7 +323,7 @@ def test_new_cards_are_due_for_review_right_away(auth_client, note):
     assert {c["id"] for c in response.json()} == {c["id"] for c in cards}
 
 
-def test_ai_flashcards_returns_generated_cards_without_saving(auth_client, fake_ai):
+def test_ai_flashcards_returns_generated_cards_without_saving(auth_client):
     response = auth_client.post(
         "/ai/flashcards", json={"content": "Some study text", "count": 2}
     )

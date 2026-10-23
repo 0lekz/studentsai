@@ -1,5 +1,16 @@
 import uuid
 
+from sqlalchemy import select
+
+from app.models import LLMCacheEntry, LLMCall
+from app.services.llm import LLMUnavailableError
+from app.services.note_generation import (
+    SUMMARY_PROMPT_VERSION,
+    SUMMARY_PURPOSE,
+    SUMMARY_SYSTEM_PROMPT,
+    notes_messages,
+)
+
 MISSING_NOTE_ID = "00000000-0000-0000-0000-000000000000"
 
 
@@ -163,14 +174,112 @@ def test_put_tags_replaces_the_note_tags(auth_client, create_note):
     assert listed["tags"] == ["c"]
 
 
-def test_summarize_note_stores_the_ai_summary(auth_client, create_note, fake_ai):
+def test_summarize_note_stores_the_ai_summary(
+    auth_client, create_note, notes_llm, user
+):
+    llm = notes_llm({SUMMARY_PURPOSE: {"summary": "  Light becomes sugar.\n"}})
     note = create_note(auth_client)
 
     response = auth_client.post(f"/notes/{note['id']}/summarize")
 
     assert response.status_code == 200
-    assert response.json()["summary"] == fake_ai.summary
-    assert auth_client.get(f"/notes/{note['id']}").json()["summary"] == fake_ai.summary
+    assert response.json()["summary"] == "Light becomes sugar."
+    assert (
+        auth_client.get(f"/notes/{note['id']}").json()["summary"]
+        == "Light becomes sugar."
+    )
+    [request] = llm.requests_for(SUMMARY_PURPOSE)
+    assert request.system == SUMMARY_SYSTEM_PROMPT
+    assert request.messages == tuple(notes_messages(note["content"]))
+    assert str(request.user_id) == user.id
+
+
+def test_summarizing_unchanged_content_again_replays_the_cached_summary(
+    auth_client, create_note, notes_llm, db_session
+):
+    llm = notes_llm()
+    note = create_note(auth_client)
+
+    first = auth_client.post(f"/notes/{note['id']}/summarize").json()
+    second = auth_client.post(f"/notes/{note['id']}/summarize").json()
+
+    assert second["summary"] == first["summary"]
+    assert len(llm.requests_for(SUMMARY_PURPOSE)) == 1
+    calls = db_session.scalars(
+        select(LLMCall).where(LLMCall.purpose == SUMMARY_PURPOSE)
+    ).all()
+    assert sorted(call.cached for call in calls) == [False, True]
+
+
+def test_editing_a_note_summarizes_its_new_content(auth_client, create_note, notes_llm):
+    llm = notes_llm()
+    note = create_note(auth_client)
+    auth_client.post(f"/notes/{note['id']}/summarize")
+    auth_client.put(f"/notes/{note['id']}", json={"content": "Chlorophyll is green."})
+
+    auth_client.post(f"/notes/{note['id']}/summarize")
+
+    assert [request.messages for request in llm.requests_for(SUMMARY_PURPOSE)] == [
+        tuple(notes_messages(note["content"])),
+        tuple(notes_messages("Chlorophyll is green.")),
+    ]
+
+
+def test_summary_prompt_version_is_part_of_the_cache_entry(
+    auth_client, create_note, db_session
+):
+    note = create_note(auth_client)
+
+    auth_client.post(f"/notes/{note['id']}/summarize")
+
+    assert db_session.scalars(select(LLMCacheEntry.prompt_version)).all() == [
+        SUMMARY_PROMPT_VERSION
+    ]
+
+
+def test_a_failed_summary_returns_500_and_leaves_the_note_unchanged(
+    auth_client, create_note, notes_llm
+):
+    def outage(request):
+        raise LLMUnavailableError("overloaded")
+
+    notes_llm({SUMMARY_PURPOSE: outage})
+    note = create_note(auth_client)
+
+    response = auth_client.post(f"/notes/{note['id']}/summarize")
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Failed to generate summary: overloaded"}
+    assert auth_client.get(f"/notes/{note['id']}").json()["summary"] is None
+
+
+def test_ai_summarize_returns_the_summary_and_its_counts(auth_client, notes_llm, user):
+    llm = notes_llm({SUMMARY_PURPOSE: {"summary": "Light becomes sugar."}})
+    content = "Plants convert light energy into chemical energy."
+
+    response = auth_client.post("/ai/summarize", json={"content": f"  {content}  "})
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "summary": "Light becomes sugar.",
+        "word_count": 3,
+        "original_length": len(content),
+    }
+    [request] = llm.requests_for(SUMMARY_PURPOSE)
+    assert request.messages == tuple(notes_messages(content))
+    assert str(request.user_id) == user.id
+
+
+def test_ai_summarize_failure_returns_500(auth_client, notes_llm):
+    def outage(request):
+        raise LLMUnavailableError("overloaded")
+
+    notes_llm({SUMMARY_PURPOSE: outage})
+
+    response = auth_client.post("/ai/summarize", json={"content": "Some text"})
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Failed to generate summary: overloaded"}
 
 
 def test_manual_link_shows_source_as_backlink_of_target(auth_client, create_note):

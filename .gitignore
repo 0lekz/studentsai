@@ -14,7 +14,6 @@ __pycache__/
 
 # Local uploads and outputs
 backend/uploads/*
-!backend/uploads/.gitkeep
 backend/uvicorn.out
 
 # OS
@@ -77,6 +76,7 @@ __pycache__/
 *.pyo
 *.pyd
 .env.*
+!.env.example
 *.sqlite3
 node_modules/
 dist/

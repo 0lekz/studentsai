@@ -18,9 +18,9 @@ from pathlib import Path
 
 import numpy as np
 
-from app.ai_service import ai_service
 from app.config import settings
 from app.services.embedding_service import FastEmbedEmbedder, note_text
+from app.services.similarity_tfidf import calculate_similarity
 
 EVAL_DIR = Path(__file__).parent
 CORPUS_DIR = EVAL_DIR / "corpus"
@@ -182,7 +182,7 @@ def edge_scores(
 
 def tfidf_similarity(corpus: Corpus) -> np.ndarray:
     """Exactly what /graph computes today: the production TF-IDF path and its text format."""
-    return ai_service.calculate_similarity(
+    return calculate_similarity(
         [f"{note.title} {note.content}" for note in corpus.notes]
     )
 

@@ -1,6 +1,11 @@
 -r requirements.txt
 
-# Testing (pytest, pytest-asyncio and httpx are pinned in requirements.txt)
+# Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
 pytest-cov==7.1.0
 coverage==7.16.2
+httpx==0.25.2
+
+# Lint and format
 ruff==0.17.0

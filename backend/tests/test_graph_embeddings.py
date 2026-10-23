@@ -5,6 +5,8 @@ from sqlalchemy import delete, update
 
 from app.config import settings
 from app.models import NoteEmbedding
+from app.services.embedding_service import FakeEmbedder, note_text
+from app.services.similarity_tfidf import calculate_similarity
 
 MITOSIS = ("Mitosis", "Mitosis splits one cell into two identical daughter cells.")
 CELL_DIVISION = (
@@ -41,10 +43,19 @@ def ordered(a: dict, b: dict) -> tuple[str, str]:
     return low, high
 
 
+def embedding_similarity(a: tuple[str, str], b: tuple[str, str]) -> float:
+    first, second = FakeEmbedder().embed([note_text(*a), note_text(*b)])
+    return sum(x * y for x, y in zip(first, second, strict=True))
+
+
+def tfidf_similarity(a: tuple[str, str], b: tuple[str, str]) -> float:
+    return calculate_similarity([" ".join(a), " ".join(b)])[0][1]
+
+
 @pytest.mark.usefixtures("embeddings_backend")
 class TestGraphWithEmbeddings:
     def test_similar_notes_connect_and_unrelated_notes_do_not(
-        self, auth_client, create_note, fake_ai
+        self, auth_client, create_note
     ):
         mitosis = create_note(auth_client, *MITOSIS)
         division = create_note(auth_client, *CELL_DIVISION)
@@ -68,8 +79,9 @@ class TestGraphWithEmbeddings:
             mitosis, division
         )
         assert connection["connection_type"] == "similarity"
-        assert 0.5 < connection["similarity"] <= 1.0
-        assert fake_ai.calls == []
+        assert connection["similarity"] == pytest.approx(
+            embedding_similarity(MITOSIS, CELL_DIVISION), abs=1e-4
+        )
 
     def test_the_threshold_decides_which_pairs_connect(
         self, auth_client, create_note, monkeypatch
@@ -141,10 +153,15 @@ class TestGraphWithEmbeddings:
         }
 
 
-def test_the_default_backend_still_uses_tfidf(auth_client, create_note, fake_ai):
+def test_the_default_backend_still_uses_tfidf(auth_client, create_note):
+    assert tfidf_similarity(MITOSIS, CELL_DIVISION) != pytest.approx(
+        embedding_similarity(MITOSIS, CELL_DIVISION), abs=1e-4
+    )
     create_note(auth_client, *MITOSIS)
     create_note(auth_client, *CELL_DIVISION)
 
-    get_graph(auth_client)
+    [connection] = get_graph(auth_client)["connections"]
 
-    assert [name for name, _ in fake_ai.calls] == ["calculate_note_similarities"]
+    assert connection["similarity"] == pytest.approx(
+        tfidf_similarity(MITOSIS, CELL_DIVISION)
+    )

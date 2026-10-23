@@ -1,7 +1,25 @@
 import uuid
 
+import pytest
+
 from app.repositories.notes import create_note as insert_note
 from app.repositories.notes import upsert_note_similarity
+from app.services.similarity_tfidf import calculate_similarity
+
+MITOSIS = ("Mitosis", "Mitosis splits one cell into two identical daughter cells.")
+CELL_DIVISION = (
+    "Cell division",
+    "In mitosis one cell splits into two identical daughter cells.",
+)
+MARKETS = (
+    "Market equilibrium",
+    "Supply and demand curves meet at the equilibrium price.",
+)
+UNRELATED = (
+    ("Cells", "Cells split into two daughter cells."),
+    ("Inflation", "Prices rise when the money supply grows."),
+    ("Sonnets", "Shakespeare wrote poems of fourteen lines."),
+)
 
 
 def edges(graph: dict) -> set[tuple[str, str, float, str]]:
@@ -21,7 +39,7 @@ def test_graph_without_notes_is_empty(auth_client):
     assert get_graph(auth_client) == {"nodes": [], "connections": [], "total_nodes": 0}
 
 
-def test_graph_with_a_single_note_has_no_connections(auth_client, create_note, fake_ai):
+def test_graph_with_a_single_note_has_no_connections(auth_client, create_note):
     note = create_note(auth_client, "Solo", "Just one note here")
 
     graph = get_graph(auth_client)
@@ -33,13 +51,10 @@ def test_graph_with_a_single_note_has_no_connections(auth_client, create_note, f
     assert node["word_count"] == 4
     assert graph["connections"] == []
     assert graph["total_nodes"] == 1
-    assert fake_ai.calls == []
 
 
 def test_graph_returns_nodes_and_manual_link_edges(auth_client, create_note):
-    a = create_note(auth_client, "A", "First note")
-    b = create_note(auth_client, "B", "Second note")
-    c = create_note(auth_client, "C", "Third note")
+    a, b, c = (create_note(auth_client, *note) for note in UNRELATED)
     auth_client.post(f"/notes/{a['id']}/links", params={"target_note_id": b["id"]})
 
     graph = get_graph(auth_client)
@@ -59,32 +74,31 @@ def test_graph_includes_wiki_link_edges(auth_client, create_note):
     }
 
 
-def test_graph_includes_similarity_edges_from_the_ai_service(
-    auth_client, create_note, fake_ai
+def test_graph_draws_tfidf_similarity_edges_between_the_callers_similar_notes(
+    auth_client, other_auth_client, create_note
 ):
-    a = create_note(auth_client, "A", "Cells divide")
-    b = create_note(auth_client, "B", "Cells grow")
-    fake_ai.similarities = [
-        {
-            "source_id": uuid.UUID(a["id"]),
-            "target_id": uuid.UUID(b["id"]),
-            "similarity": 0.75,
-            "connection_type": "similarity",
-        }
-    ]
+    mitosis = create_note(auth_client, *MITOSIS)
+    division = create_note(auth_client, *CELL_DIVISION)
+    create_note(auth_client, *MARKETS)
+    create_note(other_auth_client, *MITOSIS)
+    expected = calculate_similarity(
+        [f"{title} {content}" for title, content in (MITOSIS, CELL_DIVISION, MARKETS)]
+    )[0][1]
 
-    graph = get_graph(auth_client)
+    [connection] = get_graph(auth_client)["connections"]
 
-    assert edges(graph) == {(a["id"], b["id"], 0.75, "similarity")}
-    [(_, similarity_args)] = fake_ai.calls
-    assert {str(n["id"]) for n in similarity_args["notes"]} == {a["id"], b["id"]}
+    assert {connection["source_id"], connection["target_id"]} == {
+        mitosis["id"],
+        division["id"],
+    }
+    assert connection["connection_type"] == "similarity"
+    assert connection["similarity"] == pytest.approx(expected)
 
 
 def test_graph_includes_stored_similarities_scaled_from_thousandths(
     auth_client, create_note, db_session
 ):
-    a = create_note(auth_client, "A", "Body")
-    b = create_note(auth_client, "B", "Body")
+    a, b = (create_note(auth_client, *note) for note in UNRELATED[:2])
     upsert_note_similarity(db_session, uuid.UUID(a["id"]), uuid.UUID(b["id"]), 0.42)
     low, high = sorted([a["id"], b["id"]])
 
@@ -105,8 +119,10 @@ def test_graph_truncates_content_preview_to_200_characters(auth_client, create_n
 def test_graph_only_contains_the_callers_notes_and_links(
     auth_client, other_auth_client, create_note
 ):
-    mine = [create_note(auth_client, f"Mine {n}", "Body") for n in range(2)]
-    theirs = [create_note(other_auth_client, f"Theirs {n}", "Body") for n in range(2)]
+    mine = [create_note(auth_client, *note) for note in UNRELATED[:2]]
+    theirs = [
+        create_note(other_auth_client, *note) for note in (MITOSIS, CELL_DIVISION)
+    ]
     other_auth_client.post(
         f"/notes/{theirs[0]['id']}/links", params={"target_note_id": theirs[1]["id"]}
     )
@@ -130,12 +146,12 @@ def test_graph_includes_every_note_not_only_the_first_hundred(
 
 
 def test_graph_for_a_course_only_draws_that_courses_notes_and_edges(
-    auth_client, create_course, create_note, db_session, fake_ai
+    auth_client, create_course, create_note, db_session
 ):
     biology = create_course(auth_client, "Biology")
-    cells = create_note(auth_client, "Cells", "Body", course_id=biology["id"])
-    mitosis = create_note(auth_client, "Mitosis", "Body", course_id=biology["id"])
-    loose = create_note(auth_client, "Loose", "Body")
+    cells = create_note(auth_client, *UNRELATED[0], course_id=biology["id"])
+    mitosis = create_note(auth_client, *MITOSIS, course_id=biology["id"])
+    loose = create_note(auth_client, *CELL_DIVISION)
     for source, target in ((cells, mitosis), (cells, loose)):
         auth_client.post(
             f"/notes/{source['id']}/links", params={"target_note_id": target["id"]}
@@ -149,11 +165,6 @@ def test_graph_for_a_course_only_draws_that_courses_notes_and_edges(
     assert {node["id"] for node in graph["nodes"]} == {cells["id"], mitosis["id"]}
     assert graph["total_nodes"] == 2
     assert edges(graph) == {(cells["id"], mitosis["id"], 1.0, "manual")}
-    [(_, similarity_args)] = fake_ai.calls
-    assert {str(n["id"]) for n in similarity_args["notes"]} == {
-        cells["id"],
-        mitosis["id"],
-    }
 
 
 def test_graph_for_another_users_course_returns_404(

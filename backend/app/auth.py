@@ -5,9 +5,9 @@ Authentication and authorization for StudentsAI MVP
 import uuid
 from datetime import datetime, timedelta
 
+import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
@@ -62,7 +62,7 @@ def verify_token(token: str) -> TokenData | None:
             return None
 
         return TokenData(email=email)
-    except JWTError:
+    except jwt.InvalidTokenError:
         return None
 
 
@@ -130,15 +130,9 @@ def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
 
-    try:
-        token = credentials.credentials
-        token_data = verify_token(token)
-
-        if token_data is None or token_data.email is None:
-            raise credentials_exception
-
-    except JWTError:
-        raise credentials_exception from None
+    token_data = verify_token(credentials.credentials)
+    if token_data is None or token_data.email is None:
+        raise credentials_exception
 
     user = get_user_by_email(db, email=token_data.email)
     if user is None:
@@ -160,26 +154,3 @@ def get_verified_user_id(current_user=Depends(get_current_user)) -> uuid.UUID:
             detail="Email verification required. Please check your email and verify your account before accessing this feature.",
         )
     return current_user.id
-
-
-# Optional authentication (for public endpoints)
-def get_current_user_optional(
-    credentials: HTTPAuthorizationCredentials | None = Depends(security),
-    db: Session = Depends(get_db),
-):
-    """Get current user if authenticated, None otherwise"""
-    if not credentials:
-        return None
-
-    try:
-        token = credentials.credentials
-        token_data = verify_token(token)
-
-        if token_data is None or token_data.email is None:
-            return None
-
-        user = get_user_by_email(db, email=token_data.email)
-        return user
-
-    except (JWTError, HTTPException):
-        return None

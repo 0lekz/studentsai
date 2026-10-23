@@ -10,9 +10,6 @@ from fastapi import (
 )
 from sqlalchemy.orm import Session
 
-from app.ai_service import (
-    summarize_content,
-)
 from app.auth import (
     get_current_user_id,
 )
@@ -49,6 +46,7 @@ from app.services.courses import get_course
 from app.services.embedding_service import (
     refresh_note_embedding,
 )
+from app.services.note_generation import summarize_content
 
 router = APIRouter()
 
@@ -288,12 +286,13 @@ async def summarize_text(
     request_data: SummarizeRequest,
     request: Request,
     user_id: uuid.UUID = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
 ):
     """Generate summary of text content"""
     await check_ai_rate_limit(request, str(user_id))
 
     try:
-        summary = await summarize_content(request_data.content)
+        summary = await summarize_content(db, request_data.content, user_id)
 
         return SummarizeResponse(
             summary=summary,
@@ -324,7 +323,7 @@ async def summarize_note(
         )
 
     try:
-        summary = await summarize_content(note.content)
+        summary = await summarize_content(db, note.content, user_id)
         updated_note = update_note(db, note, summary=summary)
 
         return _note_response(updated_note)

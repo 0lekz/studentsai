@@ -7,9 +7,6 @@ from fastapi import (
 )
 from sqlalchemy.orm import Session
 
-from app.ai_service import (
-    calculate_note_similarities,
-)
 from app.auth import (
     get_current_user_id,
 )
@@ -30,6 +27,7 @@ from app.schemas import (
 from app.services.embedding_service import (
     find_embedding_connections,
 )
+from app.services.similarity_tfidf import find_note_connections
 
 router = APIRouter()
 
@@ -75,7 +73,7 @@ async def get_notes_graph(
     if settings.similarity_backend == "embeddings":
         connections = find_embedding_connections(db, note_ids)
     else:
-        connections = calculate_note_similarities(notes_data)
+        connections = find_note_connections(notes_data)
 
     # Create graph nodes
     nodes = [

@@ -24,19 +24,10 @@ class Settings(BaseSettings):
         1440  # 24 hours for email verification token expiry
     )
 
-    # Email Configuration (NEW)
-    mail_username: str = "your-email@gmail.com"
-    mail_password: str = "your-app-password"
+    # Email, sent through the SendGrid Web API
     mail_from: str = "your-email@gmail.com"
-    mail_port: int = 587
-    mail_tls: bool = True
-    mail_ssl: bool = False
     mail_from_name: str = "StudentsAI"
-    mail_timeout: int = (
-        120  # Email sending timeout in seconds (2 minutes for slow connections)
-    )
-    mail_server: str = "smtp.gmail.com"  # SMTP server (can be changed to alternatives)
-    sendgrid_api_key: str = "your-sendgrid-api-key"  # SendGrid API key for Web API
+    sendgrid_api_key: str = "your-sendgrid-api-key"
 
     # Google OAuth Configuration (NEW)
     google_client_id: str = "your-google-client-id"
@@ -44,7 +35,6 @@ class Settings(BaseSettings):
     google_redirect_uri: str = "http://localhost:3000/auth/google/callback"
 
     # App
-    app_name: str = "StudentsAI"
     host: str = "0.0.0.0"
     port: int = 8000
     frontend_url: str = "http://localhost:3000"  # NEW: Frontend URL for email links (use https://www.studentsai.org for production)
@@ -59,7 +49,6 @@ class Settings(BaseSettings):
 
     # AI Configuration
     openai_api_key: str = "your-openai-api-key"
-    daily_ai_request_limit: int = 100
     ai_requests_per_hour: int = 100  # Hourly AI request limit
 
     # LLM provider layer; model and base URL default to the provider's own
@@ -98,11 +87,12 @@ class Settings(BaseSettings):
     )
     max_document_bytes: int = 25 * 1024 * 1024
 
-    # Environment
-    environment: str = "development"
-    debug: bool = True  # Set to False in production via environment variable
+    # API docs, error details in responses and no rate limits; False in production
+    debug: bool = True
 
-    model_config = SettingsConfigDict(env_file=".env", case_sensitive=False)
+    model_config = SettingsConfigDict(
+        env_file=".env", case_sensitive=False, extra="ignore"
+    )
 
 
 # Global settings instance
@@ -110,9 +100,6 @@ settings = Settings()
 
 # Database URL for SQLAlchemy
 DATABASE_URL = settings.database_url
-
-# OpenAI configuration
-OPENAI_API_KEY = settings.openai_api_key
 
 # Security configuration
 SECRET_KEY = settings.secret_key
@@ -125,7 +112,6 @@ GOOGLE_CLIENT_SECRET = settings.google_client_secret
 GOOGLE_REDIRECT_URI = settings.google_redirect_uri
 
 # Application configuration
-ENVIRONMENT = settings.environment
 DEBUG = settings.debug
 HOST = settings.host
 PORT = settings.port
