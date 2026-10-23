@@ -61,7 +61,7 @@ export function SiteFooter() {
             </div>
             <div className="flex space-x-3 pt-2">
               <a
-                href="https://github.com/Oleksiy-Zhukov/students-ai-toolkit"
+                href="https://github.com/0lekz/studentsai"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center space-x-1 text-sm text-gray-600 hover:text-orange-600 dark:text-gray-400 dark:hover:text-orange-400 transition-colors"
@@ -88,7 +88,7 @@ export function SiteFooter() {
               </p>
               <div className="flex flex-col space-y-2">
                 <a
-                  href="https://github.com/Oleksiy-Zhukov"
+                  href="https://github.com/0lekz"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center space-x-2 text-sm text-gray-600 hover:text-orange-600 dark:text-gray-400 dark:hover:text-orange-400 transition-colors"

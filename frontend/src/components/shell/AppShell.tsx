@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { Menu } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { ConstructionNotice } from '@/components/ui/construction-notice'
 import { BrandMark } from './BrandMark'
 import { CourseRail } from './CourseRail'
 import { RailDrawer } from './RailDrawer'
@@ -43,6 +44,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <BrandMark className="h-7 w-7" />
           <span className="text-body-lg font-semibold">StudentsAI</span>
         </header>
+        <ConstructionNotice variant="strip" />
         <main className="flex min-h-0 flex-1 flex-col">{children}</main>
       </div>
 

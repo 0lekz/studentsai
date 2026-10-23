@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button'
 import { MediaFrame } from '@/components/landing/MediaFrame'
 import { screenshots } from '@/components/landing/screenshots'
 import { ParticlesBackground } from '@/components/landing/ParticlesBackground'
+import { ConstructionNotice } from '@/components/ui/construction-notice'
+import { REPO_URL, UNDER_CONSTRUCTION } from '@/lib/launch'
 
 export function Hero() {
   return (
@@ -23,6 +25,7 @@ export function Hero() {
       <div className="relative mx-auto max-w-7xl px-6 pb-20 pt-24 sm:pb-28 sm:pt-32">
         <div className="grid items-center gap-16 md:grid-cols-2">
           <div className="space-y-10">
+            <ConstructionNotice className="animate-in fade-in max-w-xl" />
             <h1 className="animate-in fade-in slide-in-from-bottom-2 text-5xl font-extrabold tracking-tight text-foreground md:text-6xl lg:text-7xl">
               A tutor that has read your course
             </h1>
@@ -30,15 +33,33 @@ export function Hero() {
               Drop in your lecture slides. StudentsAI asks you questions from them, grades your answers, and points to the exact slide you missed.
             </p>
             <div className="animate-in fade-in slide-in-from-bottom-2 flex flex-col gap-3 delay-200 sm:flex-row sm:items-center">
-              <Button asChild size="lg" className="h-14 rounded-[14px] px-8 text-lg">
-                <Link href="/auth">
-                  Start studying free
-                  <ArrowRight className="h-5 w-5" />
-                </Link>
-              </Button>
-              <Button asChild variant="ghost" size="lg" className="h-14 px-6 text-lg text-muted-foreground">
-                <a href="#how-it-works">See how it works</a>
-              </Button>
+              {UNDER_CONSTRUCTION ? (
+                <>
+                  <Button asChild size="lg" className="h-14 rounded-[14px] px-8 text-lg">
+                    <a href="#how-it-works">
+                      See what is coming
+                      <ArrowRight className="h-5 w-5" />
+                    </a>
+                  </Button>
+                  <Button asChild variant="ghost" size="lg" className="h-14 px-6 text-lg text-muted-foreground">
+                    <a href={REPO_URL} target="_blank" rel="noopener noreferrer">
+                      Follow the rebuild on GitHub
+                    </a>
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button asChild size="lg" className="h-14 rounded-[14px] px-8 text-lg">
+                    <Link href="/auth">
+                      Start studying free
+                      <ArrowRight className="h-5 w-5" />
+                    </Link>
+                  </Button>
+                  <Button asChild variant="ghost" size="lg" className="h-14 px-6 text-lg text-muted-foreground">
+                    <a href="#how-it-works">See how it works</a>
+                  </Button>
+                </>
+              )}
             </div>
           </div>
           <div className="animate-in fade-in slide-in-from-bottom-2 flex items-end justify-end">
