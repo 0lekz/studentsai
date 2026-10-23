@@ -2,6 +2,136 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  :root,
+  .light {
+    --font-sans: var(--font-inter), "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Noto Sans JP", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+    --text-caption: 0.75rem;
+    --text-caption-leading: 1rem;
+    --text-body: 0.875rem;
+    --text-body-leading: 1.25rem;
+    --text-body-lg: 1rem;
+    --text-body-lg-leading: 1.5rem;
+    --text-title: 1.125rem;
+    --text-title-leading: 1.75rem;
+    --text-headline: 1.5rem;
+    --text-headline-leading: 2rem;
+    --text-display: 1.875rem;
+    --text-display-leading: 2.25rem;
+
+    --space-gutter: 1rem;
+    --space-section: 1.5rem;
+    --rail-width: 16rem;
+    --topbar-height: 3.5rem;
+    --bottombar-height: 4rem;
+    --content-max-width: 64rem;
+    --prose-max-width: 42rem;
+
+    --radius-control: 0.5rem;
+    --radius-card: 0.75rem;
+
+    --background: 210 20% 98%;
+    --foreground: 221 39% 11%;
+    --surface: 0 0% 100%;
+    --surface-raised: 0 0% 100%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+    --border: 220 13% 91%;
+    --input: 216 12% 84%;
+    --ring: 25 95% 53%;
+    --primary: 21 90% 48%;
+    --primary-hover: 17 88% 40%;
+    --primary-foreground: 0 0% 100%;
+    --brand: 25 95% 53%;
+    --brand-soft: 33 100% 96%;
+    --brand-soft-foreground: 17 88% 40%;
+    --accent: 220 14% 96%;
+    --accent-foreground: 221 39% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 221 39% 11%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --destructive-soft: 0 86% 97%;
+    --destructive-soft-foreground: 0 74% 42%;
+    --success: 142 76% 36%;
+    --success-soft: 138 76% 97%;
+    --success-soft-foreground: 142 72% 29%;
+    --warning: 38 92% 50%;
+    --warning-soft: 48 100% 96%;
+    --warning-soft-foreground: 32 81% 29%;
+    --mastery-low: 27 96% 61%;
+    --mastery-mid: 21 90% 48%;
+    --mastery-high: 15 79% 34%;
+
+    color-scheme: light;
+  }
+
+  .dark {
+    --background: 220 17% 7%;
+    --foreground: 220 14% 96%;
+    --surface: 220 23% 10%;
+    --surface-raised: 218 25% 13%;
+    --muted: 218 25% 15%;
+    --muted-foreground: 218 11% 65%;
+    --border: 218 21% 17%;
+    --input: 218 18% 24%;
+    --ring: 25 95% 53%;
+    --primary: 21 90% 48%;
+    --primary-hover: 25 95% 53%;
+    --primary-foreground: 0 0% 100%;
+    --brand: 25 95% 53%;
+    --brand-soft: 25 35% 12%;
+    --brand-soft-foreground: 31 97% 72%;
+    --accent: 218 25% 15%;
+    --accent-foreground: 220 14% 96%;
+    --popover: 220 23% 10%;
+    --popover-foreground: 220 14% 96%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --destructive-soft: 0 45% 13%;
+    --destructive-soft-foreground: 0 94% 82%;
+    --success: 142 69% 58%;
+    --success-soft: 145 40% 11%;
+    --success-soft-foreground: 141 79% 85%;
+    --warning: 43 96% 56%;
+    --warning-soft: 40 45% 11%;
+    --warning-soft-foreground: 48 96% 77%;
+    --mastery-low: 15 79% 34%;
+    --mastery-mid: 21 90% 48%;
+    --mastery-high: 31 97% 72%;
+
+    color-scheme: dark;
+  }
+
+  @media (min-width: 768px) {
+    :root {
+      --space-gutter: 1.5rem;
+      --space-section: 2rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    :root {
+      --space-gutter: 2rem;
+    }
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}
+
+@layer components {
+  .citation-marker {
+    @apply mx-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-soft px-1.5 align-text-top text-caption font-semibold text-brand-soft-foreground no-underline transition-colors hover:bg-primary hover:text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring;
+  }
+}
+
 /* Subtle reveal animation for landing sections */
 [data-reveal] {
   opacity: 0;
@@ -21,30 +151,3 @@
     transition: none !important;
   }
 }
-
-/* Use Noto Sans JP as a fallback for Japanese */
-:root {
-  --font-fallback-jp: 'Noto Sans JP', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-}
-
-body {
-  font-family: var(--font-fallback-jp);
-}
-
-/* Dark theme tokens tuned closer to Obsidian */
-.dark {
-  color-scheme: dark;
-}
-
-.dark .card,
-.dark .shadcn-card,
-.dark .bg-card {
-  background-color: #141820;
-}
-
-.dark .border,
-.dark .shadcn-border {
-  border-color: #232a36;
-}
-
-

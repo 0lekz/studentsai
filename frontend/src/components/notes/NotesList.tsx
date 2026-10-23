@@ -4,68 +4,69 @@ import { useState, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { type Note } from '@/lib/api'
-import { formatDate, truncateText, getWordCount } from '@/lib/utils'
-import { 
-  Edit, 
-  Trash2, 
-  FileText, 
-  Calendar, 
-  Hash, 
-  MoreHorizontal, 
-  Search, 
-  Filter, 
-  SortAsc, 
+import { cn, formatDate, getWordCount } from '@/lib/utils'
+import {
+  Calendar,
+  Clock,
+  Edit,
+  FileText,
+  Filter,
+  Hash,
+  MoreHorizontal,
+  Search,
+  SortAsc,
   SortDesc,
   Tag,
-  Clock,
-  Star,
-  FolderOpen,
-  X
+  Trash2,
+  X,
 } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
-import { KeywordsDisplay } from './KeywordsDisplay'
-import { Badge } from '@/components/ui/badge'
 
 interface NotesListProps {
   notes: Note[]
   onEdit: (note: Note) => void
-  onDelete: (noteId: string) => void
+  onDelete: (noteId: string) => Promise<void> | void
   onSelect: (note: Note) => void
-  onRefreshKeywords?: (noteId: string) => Promise<void>
   selectedNoteId?: string
 }
 
 type SortOption = 'updated' | 'created' | 'title' | 'wordCount'
 type SortDirection = 'asc' | 'desc'
 
-export function NotesList({ notes, onEdit, onDelete, onSelect, onRefreshKeywords, selectedNoteId }: NotesListProps) {
+const SORT_LABELS: Record<SortOption, string> = {
+  updated: 'Updated',
+  created: 'Created',
+  title: 'Title',
+  wordCount: 'Length',
+}
+
+const SORT_ICONS: Record<SortOption, typeof Clock> = {
+  updated: Clock,
+  created: Calendar,
+  title: FileText,
+  wordCount: Hash,
+}
+
+export function NotesList({ notes, onEdit, onDelete, onSelect, selectedNoteId }: NotesListProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [deleteDialog, setDeleteDialog] = useState<{ isOpen: boolean; noteId: string | null }>({
     isOpen: false,
-    noteId: null
+    noteId: null,
   })
-  
-  // Filter and sort state
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
   const [sortBy, setSortBy] = useState<SortOption>('updated')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const [showFilters, setShowFilters] = useState(false)
 
-  const handleDeleteClick = (noteId: string) => {
-    setDeleteDialog({ isOpen: true, noteId })
-  }
-
   const handleDeleteConfirm = async () => {
     if (!deleteDialog.noteId) return
-    
     setDeletingId(deleteDialog.noteId)
     try {
       await onDelete(deleteDialog.noteId)
@@ -74,45 +75,31 @@ export function NotesList({ notes, onEdit, onDelete, onSelect, onRefreshKeywords
     }
   }
 
-  const closeDeleteDialog = () => {
-    setDeleteDialog({ isOpen: false, noteId: null })
-  }
-
-  // Get all unique tags from notes
   const allTags = useMemo(() => {
     const tagSet = new Set<string>()
-    notes.forEach(note => {
-      if (note.tags) {
-        note.tags.forEach(tag => tagSet.add(tag))
-      }
-    })
+    for (const note of notes) {
+      for (const tag of note.tags ?? []) tagSet.add(tag)
+    }
     return Array.from(tagSet).sort()
   }, [notes])
 
-  // Filter and sort notes
   const filteredAndSortedNotes = useMemo(() => {
-    let filtered = notes.filter(note => {
-      // Search filter
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase()
+    const query = searchQuery.toLowerCase()
+    const filtered = notes.filter((note) => {
+      if (query) {
         const matchesTitle = note.title.toLowerCase().includes(query)
         const matchesContent = note.content.toLowerCase().includes(query)
-        const matchesTags = note.tags?.some(tag => tag.toLowerCase().includes(query))
+        const matchesTags = note.tags?.some((tag) => tag.toLowerCase().includes(query))
         if (!matchesTitle && !matchesContent && !matchesTags) return false
       }
-      
-      // Tag filter
       if (selectedTag) {
         return note.tags?.includes(selectedTag) || false
       }
-      
       return true
     })
 
-    // Sort notes
     filtered.sort((a, b) => {
       let comparison = 0
-      
       switch (sortBy) {
         case 'title':
           comparison = a.title.localeCompare(b.title)
@@ -127,10 +114,9 @@ export function NotesList({ notes, onEdit, onDelete, onSelect, onRefreshKeywords
           comparison = getWordCount(a.content) - getWordCount(b.content)
           break
       }
-      
       return sortDirection === 'asc' ? comparison : -comparison
     })
-    
+
     return filtered
   }, [notes, searchQuery, selectedTag, sortBy, sortDirection])
 
@@ -152,225 +138,190 @@ export function NotesList({ notes, onEdit, onDelete, onSelect, onRefreshKeywords
 
   if (notes.length === 0) {
     return (
-      <div className="p-4 text-center">
-        <FileText className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-        <p className="text-sm text-gray-500 dark:text-gray-400">No notes yet</p>
-        <p className="text-xs text-gray-400 mt-1 dark:text-gray-500">Create your first note to get started</p>
+      <div className="p-6 text-center">
+        <FileText className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
+        <p className="text-body text-foreground">No notes yet</p>
+        <p className="mt-1 text-caption text-muted-foreground">Write your first note for this course.</p>
       </div>
     )
   }
 
+  const SortIcon = SORT_ICONS[sortBy]
+
   return (
-    <div className="flex flex-col h-full">
-      {/* Search and Filter Bar */}
-      <div className="p-3 border-b border-gray-200 dark:border-[#232a36] space-y-3">
-        {/* Search Input */}
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="space-y-3 border-b border-border p-3">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Search notes..."
+            aria-label="Search notes"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 bg-gray-50 dark:bg-[#0f1115] border-gray-200 dark:border-[#232a36] text-gray-900 dark:text-gray-100"
+            className="h-9 bg-background pl-9"
           />
         </div>
 
-        {/* Filter Controls */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowFilters(!showFilters)}
-              className={`h-8 px-2 ${showFilters ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' : ''}`}
-            >
-              <Filter className="h-4 w-4 mr-1" />
-              Filters
-            </Button>
-            
-            {/* Sort Dropdown */}
+          <div className="flex items-center gap-1">
+            {allTags.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-pressed={showFilters}
+                onClick={() => setShowFilters(!showFilters)}
+                className={cn('h-8 px-2 text-muted-foreground', showFilters && 'bg-brand-soft text-brand-soft-foreground')}
+              >
+                <Filter className="h-4 w-4" />
+                Tags
+              </Button>
+            )}
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-8 px-2">
-                  {sortBy === 'updated' && <Clock className="h-4 w-4 mr-1" />}
-                  {sortBy === 'created' && <Calendar className="h-4 w-4 mr-1" />}
-                  {sortBy === 'title' && <FileText className="h-4 w-4 mr-1" />}
-                  {sortBy === 'wordCount' && <Hash className="h-4 w-4 mr-1" />}
-                  {sortBy === 'updated' ? 'Updated' : sortBy === 'created' ? 'Created' : sortBy === 'title' ? 'Title' : 'Length'}
-                  {sortDirection === 'asc' ? <SortAsc className="h-4 w-4 ml-1" /> : <SortDesc className="h-4 w-4 ml-1" />}
+                <Button variant="ghost" size="sm" className="h-8 px-2 text-muted-foreground">
+                  <SortIcon className="h-4 w-4" />
+                  {SORT_LABELS[sortBy]}
+                  {sortDirection === 'asc' ? <SortAsc className="h-4 w-4" /> : <SortDesc className="h-4 w-4" />}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
                 <DropdownMenuItem onClick={() => handleSort('updated')}>
-                  <Clock className="h-4 w-4 mr-2" />
-                  Last Updated
+                  <Clock className="h-4 w-4" />
+                  Last updated
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => handleSort('created')}>
-                  <Calendar className="h-4 w-4 mr-2" />
-                  Date Created
+                  <Calendar className="h-4 w-4" />
+                  Date created
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => handleSort('title')}>
-                  <FileText className="h-4 w-4 mr-2" />
+                  <FileText className="h-4 w-4" />
                   Title
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => handleSort('wordCount')}>
-                  <Hash className="h-4 w-4 mr-2" />
-                  Word Count
+                  <Hash className="h-4 w-4" />
+                  Word count
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Clear Filters */}
             {(searchQuery || selectedTag) && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={clearFilters}
-                className="h-8 px-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-              >
-                <X className="h-4 w-4 mr-1" />
+              <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 px-2 text-muted-foreground">
+                <X className="h-4 w-4" />
                 Clear
               </Button>
             )}
           </div>
 
-          <div className="text-xs text-gray-500 dark:text-gray-400">
+          <span className="text-caption text-muted-foreground">
             {filteredAndSortedNotes.length} of {notes.length}
-          </div>
+          </span>
         </div>
 
-        {/* Tag Filters */}
         {showFilters && allTags.length > 0 && (
-          <div className="space-y-2">
-            <div className="text-xs font-medium text-gray-700 dark:text-gray-300">Filter by tags:</div>
-            <div className="flex flex-wrap gap-1">
-              {allTags.map(tag => (
-                <Badge
-                  key={tag}
-                  variant={selectedTag === tag ? "default" : "outline"}
-                  className={`cursor-pointer text-xs ${
-                    selectedTag === tag 
-                      ? 'bg-orange-500 text-white hover:bg-orange-600' 
-                      : 'hover:bg-gray-100 dark:hover:bg-gray-700'
-                  }`}
-                  onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
-                >
-                  <Tag className="h-3 w-3 mr-1" />
-                  {tag}
-                </Badge>
-              ))}
-            </div>
+          <div className="flex flex-wrap gap-1">
+            {allTags.map((tag) => (
+              <button
+                key={tag}
+                type="button"
+                aria-pressed={selectedTag === tag}
+                onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
+                className={cn(
+                  'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-caption transition-colors',
+                  selectedTag === tag ? 'border-transparent bg-primary text-primary-foreground' : 'border-border text-muted-foreground hover:bg-accent'
+                )}
+              >
+                <Tag className="h-3 w-3" />
+                {tag}
+              </button>
+            ))}
           </div>
         )}
       </div>
 
-      {/* Notes List */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="space-y-1 p-2">
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <ul className="space-y-0.5 p-2">
           {filteredAndSortedNotes.map((note) => (
-            <div
+            <li
               key={note.id}
-              className={`group relative flex items-center space-x-3 rounded-lg px-3 py-2 cursor-pointer transition-colors border-l-2 ${
-                selectedNoteId === note.id
-                  ? 'bg-orange-50 border-orange-500 dark:bg-orange-950/20 dark:border-orange-400'
-                  : 'hover:bg-gray-100 border-transparent dark:hover:bg-[#0f1115]'
-              }`}
+              className={cn(
+                'group relative flex cursor-pointer items-center gap-3 rounded-control border-l-2 px-3 py-2 transition-colors',
+                selectedNoteId === note.id ? 'border-brand bg-brand-soft' : 'border-transparent hover:bg-accent'
+              )}
               onClick={() => onSelect(note)}
             >
-          {/* Note Icon */}
-          <div className="flex-shrink-0">
-            <FileText className="h-4 w-4 text-gray-500" />
-          </div>
-
-          {/* Note Content */}
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-gray-900 truncate dark:text-gray-100">
-              {note.title}
-            </p>
-            <div className="flex items-center space-x-2 text-xs text-gray-500 dark:text-gray-400 mb-2">
-              <span>{formatDate(note.updated_at)}</span>
-              <span>•</span>
-              <span>{getWordCount(note.content)} words</span>
-            </div>
-            
-            {/* Tags */}
-            {note.tags && note.tags.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {note.tags.slice(0, 3).map(tag => (
-                  <Badge
-                    key={tag}
-                    variant="outline"
-                    className="text-xs px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-600"
-                  >
-                    <Tag className="h-2.5 w-2.5 mr-1" />
-                    {tag}
-                  </Badge>
-                ))}
-                {note.tags.length > 3 && (
-                  <Badge
-                    variant="outline"
-                    className="text-xs px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-600"
-                  >
-                    +{note.tags.length - 3}
-                  </Badge>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-body font-medium text-foreground">{note.title}</p>
+                <p className="truncate text-caption text-muted-foreground">
+                  {formatDate(note.updated_at)} · {getWordCount(note.content)} words
+                </p>
+                {note.tags && note.tags.length > 0 && (
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {note.tags.slice(0, 3).map((tag) => (
+                      <span key={tag} className="inline-flex items-center gap-1 rounded-full bg-muted px-1.5 py-0.5 text-caption text-muted-foreground">
+                        <Tag className="h-2.5 w-2.5" />
+                        {tag}
+                      </span>
+                    ))}
+                    {note.tags.length > 3 && (
+                      <span className="rounded-full bg-muted px-1.5 py-0.5 text-caption text-muted-foreground">+{note.tags.length - 3}</span>
+                    )}
+                  </div>
                 )}
               </div>
-            )}
 
-          </div>
-
-          {/* Actions */}
-          <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 w-6 p-0 dark:text-gray-300 dark:hover:bg-[#0f1115]"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <MoreHorizontal className="h-3 w-3" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={(e: React.MouseEvent) => {
-                  e.stopPropagation()
-                  onEdit(note)
-                }}>
-                  <Edit className="h-3 w-3 mr-2" />
-                  Edit
-                </DropdownMenuItem>
-                <DropdownMenuItem 
-                  onClick={(e: React.MouseEvent) => {
-                    e.stopPropagation()
-                    handleDeleteClick(note.id)
-                  }}
-                  disabled={deletingId === note.id}
-                  className="text-red-600 dark:text-red-400"
-                >
-                  <Trash2 className="h-3 w-3 mr-2" />
-                  {deletingId === note.id ? 'Deleting...' : 'Delete'}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-          </div>
+              <div className="shrink-0 transition-opacity focus-within:opacity-100 md:opacity-0 md:group-hover:opacity-100">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`Options for ${note.title}`}
+                      className="text-muted-foreground"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      onClick={(e: React.MouseEvent) => {
+                        e.stopPropagation()
+                        onEdit(note)
+                      }}
+                    >
+                      <Edit className="h-4 w-4" />
+                      Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={(e: React.MouseEvent) => {
+                        e.stopPropagation()
+                        setDeleteDialog({ isOpen: true, noteId: note.id })
+                      }}
+                      disabled={deletingId === note.id}
+                      className="text-destructive focus:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      {deletingId === note.id ? 'Deleting...' : 'Delete'}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </li>
           ))}
-        </div>
+        </ul>
       </div>
-      
-      {/* Delete Confirmation Dialog */}
+
       <ConfirmationDialog
         isOpen={deleteDialog.isOpen}
-        onClose={closeDeleteDialog}
+        onClose={() => setDeleteDialog({ isOpen: false, noteId: null })}
         onConfirm={handleDeleteConfirm}
-        title="Delete Note"
-        description="Are you sure you want to delete this note? This action cannot be undone and will also remove any associated flashcards."
-        confirmText="Delete Note"
+        title="Delete note"
+        description="Delete this note? This cannot be undone and also removes its flashcards."
+        confirmText="Delete note"
         cancelText="Cancel"
         variant="destructive"
       />
     </div>
   )
 }
-
