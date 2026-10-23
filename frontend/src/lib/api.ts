@@ -27,9 +27,6 @@ export type SettingsAppearance = Schemas['SettingsAppearance']
 export type Note = Schemas['NoteResponse']
 export type Flashcard = Schemas['FlashcardResponse']
 export type FlashcardReviewResult = ApiResponse<'/flashcards/{flashcard_id}/review', 'post'>
-export type GraphData = ApiResponse<'/graph', 'get'>
-export type GraphNode = GraphData['nodes'][number]
-export type GraphConnection = GraphData['connections'][number]
 export type DocumentSummary = ApiResponse<'/documents', 'get'>[number]
 export type DocumentChunk = ApiResponse<'/documents/{document_id}/chunks', 'get'>[number]
 
@@ -346,38 +343,12 @@ class APIClient {
     return this.request(withQuery(`/notes/${noteId}/flashcards/generate`, query), { method: 'POST' })
   }
 
-  async getUserFlashcards(filters: { tags?: string[]; search?: string; courseId?: string } = {}): Promise<ApiResponse<'/flashcards/user', 'get'>> {
-    const query: ApiQuery<'/flashcards/user', 'get'> = {
-      tags: filters.tags?.length ? filters.tags.join(',') : undefined,
-      search: filters.search?.trim() || undefined,
-      course_id: filters.courseId,
-    }
-    return this.request(withQuery('/flashcards/user', query))
-  }
-
-  async getDueFlashcards(limit: number = 20): Promise<ApiResponse<'/flashcards/due/srs', 'get'>> {
-    const query: ApiQuery<'/flashcards/due/srs', 'get'> = { limit }
-    return this.request(withQuery('/flashcards/due/srs', query))
-  }
-
   async reviewFlashcard(flashcardId: string, qualityRating: number): Promise<FlashcardReviewResult> {
     const body: ApiJsonBody<'/flashcards/{flashcard_id}/review', 'post'> = { quality_rating: qualityRating }
     return this.request(`/flashcards/${flashcardId}/review`, { method: 'POST', body: JSON.stringify(body) })
   }
 
-  async addFlashcardTag(flashcardId: string, tag: string): Promise<unknown> {
-    return this.request(`/flashcards/${flashcardId}/tags/${encodeURIComponent(tag)}`, { method: 'POST' })
-  }
-
-  async removeFlashcardTag(flashcardId: string, tag: string): Promise<unknown> {
-    return this.request(`/flashcards/${flashcardId}/tags/${encodeURIComponent(tag)}`, { method: 'DELETE' })
-  }
-
   // Graph
-  async getNotesGraph(courseId?: string): Promise<GraphData> {
-    const query: ApiQuery<'/graph', 'get'> = { course_id: courseId }
-    return this.request(withQuery('/graph', query))
-  }
 
   // Settings
   async getProfileSettings(): Promise<User> {
