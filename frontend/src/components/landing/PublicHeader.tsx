@@ -1,38 +1,50 @@
 'use client'
 
 import Link from 'next/link'
-import { Button } from '@/components/ui/button'
 import { Github } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/theme/ThemeToggle'
+import { REPO_URL, UNDER_CONSTRUCTION } from '@/lib/launch'
+
+const linkClass =
+  'whitespace-nowrap rounded px-1 text-sm text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
 export function PublicHeader() {
   return (
-    <header className="bg-white/80 backdrop-blur border-b border-gray-200 dark:bg-gray-900/70 dark:border-gray-800 fixed top-0 left-0 right-0 z-50">
-      {/* Full-width container for the header content */}
-      <div className="w-full px-6 py-3 flex items-center justify-between">
-        <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-6 focus:top-3 bg-orange-500 text-white px-2 py-1 rounded">Skip to content</a>
-        
-        {/* Left side - Logo at very left edge */}
-        <Link href="/landing" className="flex items-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 rounded px-1">
-          <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center shadow-sm">
-            <span className="text-white font-bold text-sm">AI</span>
+    <header className="fixed inset-x-0 top-0 z-50 border-b border-border bg-surface/80 backdrop-blur">
+      <div className="flex w-full items-center justify-between px-6 py-3">
+        <a
+          href="#main"
+          className="sr-only rounded bg-primary px-2 py-1 text-primary-foreground focus:not-sr-only focus:absolute focus:left-6 focus:top-3"
+        >
+          Skip to content
+        </a>
+
+        <Link href="/landing" className="flex items-center gap-2 rounded px-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary shadow-sm">
+            <span className="text-sm font-bold text-primary-foreground">AI</span>
           </div>
-          <span className="font-semibold text-gray-900 dark:text-gray-100">StudentsAI</span>
+          <span className="font-semibold text-foreground">StudentsAI</span>
         </Link>
-        
-        {/* Right side - Navigation buttons at very right edge */}
-        <nav className="flex items-center gap-3">
-          <Link href="/auth" className="text-sm text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 rounded px-1">Log in</Link>
-          <Link href="/auth">
-            <Button className="bg-orange-500 hover:bg-orange-600 focus-visible:ring-orange-500 h-8">Start Free</Button>
+
+        <nav className="flex items-center gap-2 sm:gap-3">
+          <Link href="/auth" className={linkClass}>
+            Log in
           </Link>
+          {!UNDER_CONSTRUCTION && (
+            <Button asChild className="h-8 px-3 sm:px-4">
+              <Link href="/auth">Start free</Link>
+            </Button>
+          )}
           <a
-            href="https://github.com/Oleksiy-Zhukov/students-ai-toolkit"
+            href={REPO_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-sm text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 rounded px-1"
+            aria-label="StudentsAI on GitHub"
+            className={`inline-flex items-center gap-1 ${linkClass}`}
           >
-            <Github className="h-4 w-4" /> GitHub
+            <Github className="h-4 w-4" />
+            <span className="hidden sm:inline">GitHub</span>
           </a>
           <ThemeToggle />
         </nav>
@@ -40,5 +52,3 @@ export function PublicHeader() {
     </header>
   )
 }
-
-

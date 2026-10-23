@@ -1,95 +1,108 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { ArrowLeft, Focus, HelpCircle, Layers, Loader2, PanelLeftClose, PanelLeftOpen, Plus, Save, Sparkles } from 'lucide-react'
 import { api, type Note } from '@/lib/api'
-import { Save, FileText, PanelLeftClose, PanelLeftOpen, Loader2, Plus, Focus } from 'lucide-react'
+import { useToast } from '@/hooks/use-toast'
+import { Alert } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
 import { WysiwygEditor } from './WysiwygEditor'
 import { DistractionFreeMode } from './DistractionFreeMode'
 
+const AUTOSAVE_DELAY_MS = 3000
+const SAVED_FLASH_MS = 3000
+
 interface EditableNoteViewProps {
   note?: Note
+  courseId?: string
   onSave: (note: Note) => void
   onNavigateByTitle?: (title: string) => void
   showNotesPanel?: boolean
   onToggleNotesPanel?: () => void
   onCreateNew?: () => void
+  onBack?: () => void
+  onShowShortcuts?: () => void
+  onFlashcardsCreated?: (count: number) => void
 }
 
-export function EditableNoteView({ 
-  note, 
-  onSave, 
-  onNavigateByTitle, 
-  showNotesPanel, 
+function countWords(htmlContent: string): number {
+  const text = htmlContent.replace(/<[^>]*>/g, '').trim()
+  return text ? text.split(/\s+/).length : 0
+}
+
+export function EditableNoteView({
+  note,
+  courseId,
+  onSave,
+  onNavigateByTitle,
+  showNotesPanel,
   onToggleNotesPanel,
-  onCreateNew 
+  onCreateNew,
+  onBack,
+  onShowShortcuts,
+  onFlashcardsCreated,
 }: EditableNoteViewProps) {
+  const { toast } = useToast()
   const [title, setTitle] = useState(note?.title || '')
   const [content, setContent] = useState(note?.content || '')
   const [loading, setLoading] = useState(false)
   const [summarizing, setSummarizing] = useState(false)
+  const [generatingCards, setGeneratingCards] = useState(false)
   const [error, setError] = useState('')
   const [autoSaving, setAutoSaving] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [showSaveTime, setShowSaveTime] = useState(false)
-  const [isEditing, setIsEditing] = useState(false)
   const [showDistractionFree, setShowDistractionFree] = useState(false)
+  const [syncedNoteId, setSyncedNoteId] = useState(note?.id)
+  const [editorSession, setEditorSession] = useState(0)
 
+  const noteId = note?.id
   const isExistingNote = !!note
-  const autoSaveTimeoutRef = useRef<NodeJS.Timeout>()
+  const autoSaveTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const autoSaveRef = useRef<() => void>(() => {})
 
-  // Reset state when note changes
+  if (noteId !== syncedNoteId) {
+    const justCreated = syncedNoteId === undefined && lastSaved !== null
+    setSyncedNoteId(noteId)
+    setTitle(note?.title || '')
+    setContent(note?.content || '')
+    setHasUnsavedChanges(false)
+    if (!justCreated) {
+      setLastSaved(null)
+      setEditorSession((session) => session + 1)
+    }
+    setError('')
+  }
+
+  useEffect(() => {
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current)
+    }
+  }, [noteId])
+
   useEffect(() => {
     if (note) {
-      setTitle(note.title || '')
-      setContent(note.content || '')
-      setHasUnsavedChanges(false)
-      setLastSaved(null)
-      setError('')
+      setHasUnsavedChanges(title !== note.title || content !== note.content)
     } else {
-      setTitle('')
-      setContent('')
-      setHasUnsavedChanges(false)
-      setLastSaved(null)
-      setError('')
+      setHasUnsavedChanges(title.trim() !== '' || content.trim() !== '')
     }
-  }, [note?.id]) // Only reset when note ID changes
+  }, [title, content, note])
 
-  // Clear auto-save timeout when note changes
-  useEffect(() => {
-    if (autoSaveTimeoutRef.current) {
-      clearTimeout(autoSaveTimeoutRef.current)
-    }
-  }, [note?.id])
+  const flashSaved = () => {
+    setLastSaved(new Date())
+    setHasUnsavedChanges(false)
+    setShowSaveTime(true)
+    setTimeout(() => setShowSaveTime(false), SAVED_FLASH_MS)
+  }
 
-  // Track changes
-  useEffect(() => {
-    if (isExistingNote) {
-      const hasChanges = title !== note.title || content !== note.content
-      setHasUnsavedChanges(hasChanges)
-    } else {
-      // For new notes, any content means unsaved changes
-      const hasChanges = title.trim() !== '' || content.trim() !== ''
-      setHasUnsavedChanges(hasChanges)
-    }
-  }, [title, content, note, isExistingNote])
-
-  // Auto-save functionality for existing notes
   const performAutoSave = async () => {
-    if (!isExistingNote || !hasUnsavedChanges) return
-    if (!title.trim() || !content.trim()) return
-
+    if (!hasUnsavedChanges || !title.trim() || !content.trim()) return
     setAutoSaving(true)
     try {
-      const savedNote = await api.updateNote(note.id, { title, content })
-      setLastSaved(new Date())
-      setHasUnsavedChanges(false)
+      const savedNote = note ? await api.updateNote(note.id, { title, content }) : await api.createNote(title, content, courseId)
+      flashSaved()
       onSave(savedNote)
-      // Show save time for 3 seconds
-      setShowSaveTime(true)
-      setTimeout(() => setShowSaveTime(false), 3000)
     } catch (err) {
       console.error('Auto-save failed:', err)
     } finally {
@@ -97,44 +110,16 @@ export function EditableNoteView({
     }
   }
 
-  // Auto-save functionality for new notes (create them)
-  const performAutoSaveNew = async () => {
-    if (isExistingNote || !hasUnsavedChanges) return
-    if (!title.trim() || !content.trim()) return
+  useEffect(() => {
+    autoSaveRef.current = performAutoSave
+  })
 
-    setAutoSaving(true)
-    try {
-      const savedNote = await api.createNote(title, content)
-      setLastSaved(new Date())
-      setHasUnsavedChanges(false)
-      // Update the note reference to mark it as existing
-      onSave(savedNote)
-      // Show save time for 3 seconds
-      setShowSaveTime(true)
-      setTimeout(() => setShowSaveTime(false), 3000)
-    } catch (err) {
-      console.error('Auto-save failed:', err)
-    } finally {
-      setAutoSaving(false)
-    }
-  }
-
-  // Debounced auto-save
   useEffect(() => {
     if (!hasUnsavedChanges) return
-
     if (autoSaveTimeoutRef.current) {
       clearTimeout(autoSaveTimeoutRef.current)
     }
-
-    autoSaveTimeoutRef.current = setTimeout(() => {
-      if (isExistingNote) {
-        performAutoSave()
-      } else {
-        performAutoSaveNew()
-      }
-    }, 3000)
-
+    autoSaveTimeoutRef.current = setTimeout(() => autoSaveRef.current(), AUTOSAVE_DELAY_MS)
     return () => {
       if (autoSaveTimeoutRef.current) {
         clearTimeout(autoSaveTimeoutRef.current)
@@ -147,24 +132,13 @@ export function EditableNoteView({
       setError('Title and content are required')
       return
     }
-
     setLoading(true)
     setError('')
-
     try {
-      let savedNote: Note
-      if (isExistingNote) {
-        savedNote = await api.updateNote(note.id, { title, content })
-      } else {
-        savedNote = await api.createNote(title, content)
-      }
-      setLastSaved(new Date())
-      setHasUnsavedChanges(false)
+      const savedNote = note ? await api.updateNote(note.id, { title, content }) : await api.createNote(title, content, courseId)
+      flashSaved()
       onSave(savedNote)
-      // Show save time for 3 seconds
-      setShowSaveTime(true)
-      setTimeout(() => setShowSaveTime(false), 3000)
-    } catch (err) {
+    } catch {
       setError('Failed to save note')
     } finally {
       setLoading(false)
@@ -172,48 +146,45 @@ export function EditableNoteView({
   }
 
   const handleSummarize = async () => {
+    if (!note) return
     if (!content.trim()) {
       setError('Add some content to summarize')
       return
     }
-
     setSummarizing(true)
     setError('')
-
     try {
-      if (isExistingNote) {
-        const updatedNote = await api.summarizeNote(note.id)
-        onSave(updatedNote)
-      } else {
-        const result = await api.summarizeText(content)
-        alert(`Summary: ${result.summary}`)
-      }
-    } catch (err) {
+      onSave(await api.summarizeNote(note.id))
+    } catch {
       setError('Failed to generate summary')
     } finally {
       setSummarizing(false)
     }
   }
 
-  const getWordCount = (htmlContent: string): number => {
-    const text = htmlContent.replace(/<[^>]*>/g, '').trim()
-    return text ? text.split(/\s+/).length : 0
+  const handleMakeFlashcards = async () => {
+    if (!note) return
+    setGeneratingCards(true)
+    setError('')
+    try {
+      const cards = await api.generateNoteFlashcards(note.id)
+      onFlashcardsCreated?.(cards.length)
+    } catch (generateError) {
+      toast({
+        title: 'Could not make flashcards',
+        description: generateError instanceof Error ? generateError.message : undefined,
+        variant: 'destructive',
+      })
+    } finally {
+      setGeneratingCards(false)
+    }
   }
 
-  const wordCount = getWordCount(content)
-
-  // Auto-focus when creating new note
-  useEffect(() => {
-    if (!isExistingNote) {
-      setIsEditing(true)
-    }
-  }, [isExistingNote])
-
-  // Show distraction-free mode
   if (showDistractionFree) {
     return (
       <DistractionFreeMode
-        note={isExistingNote ? note : undefined}
+        note={note}
+        courseId={courseId}
         onSave={(savedNote) => {
           onSave(savedNote)
           setTitle(savedNote.title)
@@ -226,116 +197,92 @@ export function EditableNoteView({
   }
 
   return (
-    <div className="h-full flex flex-col bg-white dark:bg-[#141820]">
-      {/* Header */}
-      <div className="border-b border-gray-200 px-6 py-3 dark:border-[#232a36]">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <FileText className="h-5 w-5 text-gray-600 dark:text-gray-300" />
-            <span className="font-medium text-gray-900 dark:text-gray-100">
-              {isExistingNote ? 'Note' : 'New Note'}
-            </span>
-            
-            {/* Auto-save status indicator */}
-            {isExistingNote && (
-              <div className="flex items-center space-x-2 text-xs">
-                {autoSaving ? (
-                  <div className="flex items-center space-x-1 text-orange-600 dark:text-orange-400">
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    <span>Saving...</span>
-                  </div>
-                ) : hasUnsavedChanges ? (
-                  <div className="flex items-center space-x-1 text-orange-600 dark:text-orange-400">
-                    <div className="h-2 w-2 bg-orange-500 rounded-full"></div>
-                    <span>Unsaved changes</span>
-                  </div>
-                ) : lastSaved ? (
-                  <div className="flex items-center space-x-1 text-green-600 dark:text-green-400">
-                    <div className="h-2 w-2 bg-green-500 rounded-full"></div>
-                    <span>{showSaveTime ? `Saved ${lastSaved.toLocaleTimeString()}` : 'Saved'}</span>
-                  </div>
-                ) : null}
-              </div>
-            )}
-          </div>
-          
-          <div className="flex items-center space-x-2">
-            {/* Distraction-Free Mode Button */}
+    <div className="flex h-full min-h-0 flex-col bg-surface">
+      <div className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-border px-2 md:px-4">
+        <div className="flex min-w-0 items-center gap-1">
+          {onBack && (
+            <Button variant="ghost" size="icon-sm" onClick={onBack} aria-label="Back to notes" className="md:hidden">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          )}
+          {onToggleNotesPanel && (
             <Button
               variant="ghost"
-              size="sm"
-              onClick={() => setShowDistractionFree(true)}
-              className="h-8 px-2 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100"
-              title="Enter distraction-free mode (Cmd/Ctrl + Enter)"
+              size="icon-sm"
+              onClick={onToggleNotesPanel}
+              className="hidden text-muted-foreground md:inline-flex"
+              aria-label={showNotesPanel ? 'Hide notes list' : 'Show notes list'}
+              title={showNotesPanel ? 'Hide notes list' : 'Show notes list'}
             >
-              <Focus className="h-4 w-4 mr-1" />
-              Focus
+              {showNotesPanel ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
             </Button>
-
-            {/* Panel Toggle Button */}
-            {onToggleNotesPanel && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onToggleNotesPanel}
-                className="h-8 w-8 p-0 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100"
-                title={showNotesPanel ? "Hide notes panel" : "Show notes panel"}
-              >
-                {showNotesPanel ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
-              </Button>
-            )}
-            
-            {/* Create New Note Button */}
-            {onCreateNew && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onCreateNew}
-                className="h-8 w-8 p-0 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100"
-                title="Create new note"
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Error Message */}
-      {error && (
-        <div className="mx-6 mt-4 p-3 bg-red-50 border border-red-200 rounded-lg dark:bg-red-950/30 dark:border-red-900/40">
-          <p className="text-red-800 dark:text-red-200 text-sm">{error}</p>
-        </div>
-      )}
-
-      {/* Content */}
-      <div className="flex-1 flex flex-col overflow-y-auto p-6">
-        {/* Title Input */}
-        <div className="mb-6">
-          <Input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Note title..."
-            className="text-2xl font-semibold border-0 border-b border-gray-200 rounded-none px-0 py-2 focus:ring-0 focus:border-gray-400 dark:bg-[#141820] dark:text-gray-100 dark:border-[#232a36] dark:placeholder:text-gray-500 dark:focus:border-gray-500"
-            spellCheck={true}
-            autoCorrect="on"
-            autoCapitalize="words"
-            style={{
-              fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
-            }}
+          )}
+          <span className="ml-1 truncate text-body font-medium text-foreground">{isExistingNote ? 'Note' : 'New note'}</span>
+          <SaveStatus
+            autoSaving={autoSaving}
+            hasUnsavedChanges={hasUnsavedChanges && isExistingNote}
+            lastSaved={lastSaved}
+            showSaveTime={showSaveTime}
           />
         </div>
 
-        {/* WYSIWYG Editor */}
-        <div className="flex-1 flex flex-col">
-          <div className="flex justify-between items-center mb-4">
-            <span className="text-sm text-gray-500 dark:text-gray-400">Content</span>
-            <span className="text-sm text-gray-500 dark:text-gray-400">{wordCount} words</span>
+        <div className="flex shrink-0 items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowDistractionFree(true)}
+            className="text-muted-foreground"
+            title="Distraction-free mode"
+          >
+            <Focus className="h-4 w-4" />
+            <span className="hidden sm:inline">Focus</span>
+          </Button>
+          {onShowShortcuts && (
+            <Button variant="ghost" size="icon-sm" onClick={onShowShortcuts} className="hidden text-muted-foreground md:inline-flex" aria-label="Keyboard shortcuts">
+              <HelpCircle className="h-4 w-4" />
+            </Button>
+          )}
+          {onCreateNew && isExistingNote && (
+            <Button variant="ghost" size="icon-sm" onClick={onCreateNew} className="text-muted-foreground" aria-label="New note" title="New note">
+              <Plus className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {error && (
+        <Alert variant="error" className="mx-4 mt-4 md:mx-6">
+          {error}
+        </Alert>
+      )}
+
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-4 md:px-6 md:py-6">
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Note title"
+          aria-label="Note title"
+          className="w-full border-0 border-b border-border bg-transparent pb-2 text-headline font-semibold text-foreground placeholder:text-muted-foreground focus:border-input focus:outline-none"
+          spellCheck
+          autoCorrect="on"
+          autoCapitalize="words"
+        />
+
+        {note?.summary && (
+          <div className="mt-4 rounded-control bg-muted px-4 py-3">
+            <p className="text-caption font-medium uppercase tracking-wide text-muted-foreground">Summary</p>
+            <p className="mt-1 whitespace-pre-wrap text-body text-foreground">{note.summary}</p>
           </div>
-          
-          <div className="flex-1 min-h-0 overflow-hidden">
+        )}
+
+        <div className="mt-4 flex flex-1 flex-col">
+          <div className="mb-2 flex items-center justify-end">
+            <span className="text-caption text-muted-foreground">{countWords(content)} words</span>
+          </div>
+          <div className="flex-1">
             <WysiwygEditor
-              content={content}
+              key={editorSession}
+              initialContent={content}
               onChange={setContent}
               placeholder="Start writing your notes here..."
               className="h-full overflow-y-auto"
@@ -344,47 +291,60 @@ export function EditableNoteView({
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center justify-between pt-6 border-t border-gray-200 dark:border-[#232a36] mt-6">
-          <div className="flex gap-2">
-            <Button
-              onClick={handleManualSave}
-              disabled={loading || !title.trim() || !content.trim()}
-              className="bg-orange-500 hover:bg-orange-600 text-white dark:bg-orange-500 dark:hover:bg-orange-400 dark:text-white"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4 mr-2" />
-                  {isExistingNote ? 'Update Note' : 'Create Note'}
-                </>
-              )}
-            </Button>
-            
-            {isExistingNote && (
-              <Button
-                onClick={handleSummarize}
-                disabled={summarizing || !content.trim()}
-                variant="outline"
-                className="border-gray-200 text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:bg-[#0f1318] dark:hover:bg-[#1d2430]"
-              >
-                {summarizing ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Summarizing...
-                  </>
-                ) : (
-                  'AI Summary'
-                )}
+        <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-border pt-4">
+          <Button variant="outline" onClick={handleManualSave} disabled={loading || !title.trim() || !content.trim()}>
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            {loading ? 'Saving...' : isExistingNote ? 'Save' : 'Create note'}
+          </Button>
+          {isExistingNote && (
+            <>
+              <Button variant="outline" onClick={handleSummarize} disabled={summarizing || !content.trim()}>
+                {summarizing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                {summarizing ? 'Summarizing...' : 'Summarize'}
               </Button>
-            )}
-          </div>
+              <Button variant="outline" onClick={handleMakeFlashcards} disabled={generatingCards || !content.trim()}>
+                {generatingCards ? <Loader2 className="h-4 w-4 animate-spin" /> : <Layers className="h-4 w-4" />}
+                {generatingCards ? 'Making flashcards...' : 'Make flashcards'}
+              </Button>
+            </>
+          )}
         </div>
       </div>
     </div>
   )
+}
+
+interface SaveStatusProps {
+  autoSaving: boolean
+  hasUnsavedChanges: boolean
+  lastSaved: Date | null
+  showSaveTime: boolean
+}
+
+function SaveStatus({ autoSaving, hasUnsavedChanges, lastSaved, showSaveTime }: SaveStatusProps) {
+  if (autoSaving) {
+    return (
+      <span className="ml-2 flex items-center gap-1 text-caption text-brand-soft-foreground">
+        <Loader2 className="h-3 w-3 animate-spin" />
+        Saving...
+      </span>
+    )
+  }
+  if (hasUnsavedChanges) {
+    return (
+      <span className="ml-2 flex items-center gap-1.5 text-caption text-brand-soft-foreground">
+        <span className="h-2 w-2 rounded-full bg-brand" />
+        Unsaved
+      </span>
+    )
+  }
+  if (lastSaved) {
+    return (
+      <span className="ml-2 flex items-center gap-1.5 text-caption text-success">
+        <span className="h-2 w-2 rounded-full bg-success" />
+        {showSaveTime ? `Saved ${lastSaved.toLocaleTimeString()}` : 'Saved'}
+      </span>
+    )
+  }
+  return null
 }

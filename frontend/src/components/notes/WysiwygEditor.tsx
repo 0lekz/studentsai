@@ -11,38 +11,32 @@ import { Button } from '@/components/ui/button'
 import { 
   Bold, 
   Italic, 
-  Underline, 
   Strikethrough, 
   List, 
   ListOrdered, 
   Quote, 
   Code, 
   Link as LinkIcon,
-  Image as ImageIcon,
   Heading1,
   Heading2,
   Heading3,
   Minus,
-  Type,
-  AlignLeft,
-  AlignCenter,
-  AlignRight,
   Undo,
   Redo,
   X
 } from 'lucide-react'
 
 interface WysiwygEditorProps {
-  content: string
+  initialContent: string
   onChange: (content: string) => void
   placeholder?: string
   className?: string
   autoFocus?: boolean
 }
 
-export function WysiwygEditor({ 
-  content, 
-  onChange, 
+export function WysiwygEditor({
+  initialContent,
+  onChange,
   placeholder = "Start writing...", 
   className = "",
   autoFocus = false 
@@ -51,6 +45,7 @@ export function WysiwygEditor({
   const [linkUrl, setLinkUrl] = useState('')
   
   const editor = useEditor({
+    immediatelyRender: false,
     extensions: [
       StarterKit.configure({
         // Disable code blocks for now as they might interfere with markdown
@@ -74,12 +69,8 @@ export function WysiwygEditor({
         },
       }),
     ],
-    content,
-    onUpdate: ({ editor }) => {
-      // Get HTML content and convert to markdown-like format if needed
-      const html = editor.getHTML()
-      onChange(html)
-    },
+    content: initialContent,
+    onUpdate: ({ editor }) => onChange(editor.getHTML()),
     editorProps: {
       attributes: {
         class: `prose prose-orange max-w-none dark:prose-invert prose-lg focus:outline-none ${className}`,
@@ -87,7 +78,7 @@ export function WysiwygEditor({
           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
           line-height: 1.6;
           font-size: 16px;
-          min-height: 200px;
+          min-height: 300px;
           max-height: 70vh;
           overflow-y: auto;
           padding: 1rem;
@@ -97,14 +88,7 @@ export function WysiwygEditor({
         autocapitalize: 'sentences',
       },
     },
-  })
-
-  // Update editor content when prop changes
-  useEffect(() => {
-    if (editor && content !== editor.getHTML()) {
-      editor.commands.setContent(content, false)
-    }
-  }, [content, editor])
+  }, [placeholder, className])
 
   // Auto-focus if requested
   useEffect(() => {
@@ -238,9 +222,9 @@ export function WysiwygEditor({
   if (!editor) {
     return (
       <div className="animate-pulse">
-        <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-        <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
-        <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+        <div className="h-4 bg-muted rounded w-3/4 mb-2"></div>
+        <div className="h-4 bg-muted rounded w-1/2 mb-2"></div>
+        <div className="h-4 bg-muted rounded w-5/6"></div>
       </div>
     )
   }
@@ -248,14 +232,14 @@ export function WysiwygEditor({
   return (
     <div className="wysiwyg-editor">
       {/* Formatting Toolbar */}
-      <div className="border border-gray-200 dark:border-[#232a36] rounded-t-lg bg-gray-50 dark:bg-[#0f1115] p-2 flex flex-wrap items-center gap-1">
+      <div className="border border-border rounded-t-control bg-background p-2 flex flex-wrap items-center gap-1">
         {/* Text Formatting */}
-        <div className="flex items-center gap-1 border-r border-gray-300 dark:border-gray-600 pr-2 mr-2">
+        <div className="flex items-center gap-1 border-r border-border pr-2 mr-2">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => editor.chain().focus().toggleBold().run()}
-            className={`h-8 w-8 p-0 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 ${editor.isActive('bold') ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' : ''}`}
+            className={`h-8 w-8 p-0 text-muted-foreground hover:text-foreground ${editor.isActive('bold') ? 'bg-brand-soft text-brand-soft-foreground' : ''}`}
             title="Bold (Cmd/Ctrl + B)"
           >
             <Bold className="h-4 w-4" />
@@ -264,7 +248,7 @@ export function WysiwygEditor({
             variant="ghost"
             size="sm"
             onClick={() => editor.chain().focus().toggleItalic().run()}
-            className={`h-8 w-8 p-0 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 ${editor.isActive('italic') ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' : ''}`}
+            className={`h-8 w-8 p-0 text-muted-foreground hover:text-foreground ${editor.isActive('italic') ? 'bg-brand-soft text-brand-soft-foreground' : ''}`}
             title="Italic (Cmd/Ctrl + I)"
           >
             <Italic className="h-4 w-4" />
@@ -273,7 +257,7 @@ export function WysiwygEditor({
             variant="ghost"
             size="sm"
             onClick={() => editor.chain().focus().toggleStrike().run()}
-            className={`h-8 w-8 p-0 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 ${editor.isActive('strike') ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' : ''}`}
+            className={`h-8 w-8 p-0 text-muted-foreground hover:text-foreground ${editor.isActive('strike') ? 'bg-brand-soft text-brand-soft-foreground' : ''}`}
             title="Strikethrough"
           >
             <Strikethrough className="h-4 w-4" />
@@ -282,7 +266,7 @@ export function WysiwygEditor({
             variant="ghost"
             size="sm"
             onClick={() => editor.chain().focus().toggleCode().run()}
-            className={`h-8 w-8 p-0 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 ${editor.isActive('code') ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' : ''}`}
+            className={`h-8 w-8 p-0 text-muted-foreground hover:text-foreground ${editor.isActive('code') ? 'bg-brand-soft text-brand-soft-foreground' : ''}`}
             title="Code (Cmd/Ctrl + E)"
           >
             <Code className="h-4 w-4" />
@@ -290,12 +274,12 @@ export function WysiwygEditor({
         </div>
 
         {/* Headings */}
-        <div className="flex items-center gap-1 border-r border-gray-300 dark:border-gray-600 pr-2 mr-2">
+        <div className="flex items-center gap-1 border-r border-border pr-2 mr-2">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-            className={`h-8 w-8 p-0 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 ${editor.isActive('heading', { level: 1 }) ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' : ''}`}
+            className={`h-8 w-8 p-0 text-muted-foreground hover:text-foreground ${editor.isActive('heading', { level: 1 }) ? 'bg-brand-soft text-brand-soft-foreground' : ''}`}
             title="Heading 1 (Cmd/Ctrl + 1)"
           >
             <Heading1 className="h-4 w-4" />
@@ -304,7 +288,7 @@ export function WysiwygEditor({
             variant="ghost"
             size="sm"
             onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-            className={`h-8 w-8 p-0 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 ${editor.isActive('heading', { level: 2 }) ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' : ''}`}
+            className={`h-8 w-8 p-0 text-muted-foreground hover:text-foreground ${editor.isActive('heading', { level: 2 }) ? 'bg-brand-soft text-brand-soft-foreground' : ''}`}
             title="Heading 2 (Cmd/Ctrl + 2)"
           >
             <Heading2 className="h-4 w-4" />
@@ -313,7 +297,7 @@ export function WysiwygEditor({
             variant="ghost"
             size="sm"
             onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-            className={`h-8 w-8 p-0 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 ${editor.isActive('heading', { level: 3 }) ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' : ''}`}
+            className={`h-8 w-8 p-0 text-muted-foreground hover:text-foreground ${editor.isActive('heading', { level: 3 }) ? 'bg-brand-soft text-brand-soft-foreground' : ''}`}
             title="Heading 3 (Cmd/Ctrl + 3)"
           >
             <Heading3 className="h-4 w-4" />
@@ -321,12 +305,12 @@ export function WysiwygEditor({
         </div>
 
         {/* Lists */}
-        <div className="flex items-center gap-1 border-r border-gray-300 dark:border-gray-600 pr-2 mr-2">
+        <div className="flex items-center gap-1 border-r border-border pr-2 mr-2">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => editor.chain().focus().toggleBulletList().run()}
-            className={`h-8 w-8 p-0 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 ${editor.isActive('bulletList') ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' : ''}`}
+            className={`h-8 w-8 p-0 text-muted-foreground hover:text-foreground ${editor.isActive('bulletList') ? 'bg-brand-soft text-brand-soft-foreground' : ''}`}
             title="Bullet List (Cmd/Ctrl + Shift + 8)"
           >
             <List className="h-4 w-4" />
@@ -335,7 +319,7 @@ export function WysiwygEditor({
             variant="ghost"
             size="sm"
             onClick={() => editor.chain().focus().toggleOrderedList().run()}
-            className={`h-8 w-8 p-0 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 ${editor.isActive('orderedList') ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' : ''}`}
+            className={`h-8 w-8 p-0 text-muted-foreground hover:text-foreground ${editor.isActive('orderedList') ? 'bg-brand-soft text-brand-soft-foreground' : ''}`}
             title="Numbered List (Cmd/Ctrl + Shift + 7)"
           >
             <ListOrdered className="h-4 w-4" />
@@ -343,12 +327,12 @@ export function WysiwygEditor({
         </div>
 
         {/* Block Elements */}
-        <div className="flex items-center gap-1 border-r border-gray-300 dark:border-gray-600 pr-2 mr-2">
+        <div className="flex items-center gap-1 border-r border-border pr-2 mr-2">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => editor.chain().focus().toggleBlockquote().run()}
-            className={`h-8 w-8 p-0 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 ${editor.isActive('blockquote') ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' : ''}`}
+            className={`h-8 w-8 p-0 text-muted-foreground hover:text-foreground ${editor.isActive('blockquote') ? 'bg-brand-soft text-brand-soft-foreground' : ''}`}
             title="Quote (Cmd/Ctrl + Shift + >)"
           >
             <Quote className="h-4 w-4" />
@@ -365,12 +349,12 @@ export function WysiwygEditor({
         </div>
 
         {/* Links and Images */}
-        <div className="flex items-center gap-1 border-r border-gray-300 dark:border-gray-600 pr-2 mr-2">
+        <div className="flex items-center gap-1 border-r border-border pr-2 mr-2">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => setShowLinkDialog(true)}
-            className={`h-8 w-8 p-0 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 ${editor.isActive('link') ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' : ''}`}
+            className={`h-8 w-8 p-0 text-muted-foreground hover:text-foreground ${editor.isActive('link') ? 'bg-brand-soft text-brand-soft-foreground' : ''}`}
             title="Add Link (Cmd/Ctrl + K)"
           >
             <LinkIcon className="h-4 w-4" />
@@ -415,15 +399,15 @@ export function WysiwygEditor({
 
       {/* Link Dialog */}
       {showLinkDialog && (
-        <div className="absolute top-12 left-4 z-50 bg-white dark:bg-[#141820] border border-gray-200 dark:border-[#232a36] rounded-lg shadow-lg p-4 min-w-80">
+        <div className="absolute top-12 left-4 z-50 w-[min(20rem,calc(100%-2rem))] rounded-card border border-border bg-popover p-4 text-popover-foreground shadow-lg">
           <div className="space-y-3">
-            <h3 className="font-medium text-gray-900 dark:text-gray-100">Add Link</h3>
+            <h3 className="font-medium text-foreground">Add link</h3>
             <input
               type="url"
               value={linkUrl}
               onChange={(e) => setLinkUrl(e.target.value)}
               placeholder="https://example.com"
-              className="w-full px-3 py-2 border border-gray-200 dark:border-[#232a36] rounded-md bg-white dark:bg-[#0f1115] text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+              className="w-full rounded-control border border-input bg-background px-3 py-2 text-body text-foreground focus:border-transparent focus:outline-none focus:ring-2 focus:ring-ring"
               autoFocus
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
@@ -449,9 +433,8 @@ export function WysiwygEditor({
                 size="sm"
                 onClick={handleAddLink}
                 disabled={!linkUrl.trim()}
-                className="bg-orange-500 hover:bg-orange-600 text-white"
               >
-                Add Link
+                Add link
               </Button>
             </div>
           </div>
@@ -460,7 +443,7 @@ export function WysiwygEditor({
 
       <EditorContent 
         editor={editor} 
-        className="min-h-[300px] focus-within:ring-2 focus-within:ring-orange-500 focus-within:ring-opacity-50 rounded-b-lg transition-all border border-t-0 border-gray-200 dark:border-[#232a36]"
+        className="rounded-b-control border border-t-0 border-border bg-surface transition-all focus-within:ring-2 focus-within:ring-ring/50"
       />
       
       {/* Custom styles for the editor */}

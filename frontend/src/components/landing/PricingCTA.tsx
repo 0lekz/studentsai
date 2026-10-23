@@ -161,7 +161,7 @@ export function PricingCTA() {
                 🚧 Pro Plan Coming Soon!
               </h3>
               <p className="text-gray-600 dark:text-gray-300">
-                We're working hard to bring you the best features
+                We&apos;re working hard to bring you the best features
               </p>
             </div>
             

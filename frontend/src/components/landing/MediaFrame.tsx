@@ -1,5 +1,7 @@
 'use client'
 
+import Image, { type StaticImageData } from 'next/image'
+
 /**
  * MediaFrame: Minimalistic, rounded frame for screenshots.
  * - Clean, modern design with subtle borders
@@ -9,27 +11,24 @@
  */
 
 interface MediaFrameProps {
-	src?: string
+	src?: StaticImageData
 	alt: string
 	priority?: boolean
+	sizes?: string
 	className?: string
 }
 
-export function MediaFrame({ src, alt, priority, className = '' }: MediaFrameProps) {
+export function MediaFrame({ src, alt, priority, sizes = '(min-width: 1024px) 50vw, 100vw', className = '' }: MediaFrameProps) {
 	return (
 		<div className={`rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden dark:bg-gray-900 dark:border-gray-700 ${className}`}>
 			{src ? (
 				<div className="relative flex justify-center">
-					<img 
-						src={src} 
-						alt={alt} 
-						className="max-w-full h-auto object-contain"
-						style={{ 
-							display: 'block',
-							maxWidth: '100%',
-							height: 'auto'
-						}}
-						loading={priority ? 'eager' : 'lazy'}
+					<Image
+						src={src}
+						alt={alt}
+						priority={priority}
+						sizes={sizes}
+						className="block h-auto max-w-full object-contain"
 					/>
 				</div>
 			) : (

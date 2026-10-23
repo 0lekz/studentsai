@@ -63,9 +63,9 @@ function GoogleCallbackContent() {
 
         setStatus('error')
         setError('No authentication token received from Google')
-      } catch (err: any) {
+      } catch (err) {
         setStatus('error')
-        setError(err?.message || 'Failed to complete Google authentication')
+        setError((err instanceof Error && err.message) || 'Failed to complete Google authentication')
         console.error('Google auth error:', err)
       }
     }
@@ -75,7 +75,7 @@ function GoogleCallbackContent() {
 
   if (status === 'loading') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="min-h-dvh flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
         <Card className="w-full max-w-md bg-white dark:bg-[#141820] border-gray-200 dark:border-[#232a36]">
           <CardContent className="text-center py-8">
             <Loader2 className="w-12 h-12 text-orange-500 animate-spin mx-auto mb-4" />
@@ -93,7 +93,7 @@ function GoogleCallbackContent() {
 
   if (status === 'success') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="min-h-dvh flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
         <Card className="w-full max-w-md bg-white dark:bg-[#141820] border-gray-200 dark:border-[#232a36]">
           <CardContent className="text-center py-8">
             <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
@@ -113,7 +113,7 @@ function GoogleCallbackContent() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-dvh flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
       <Card className="w-full max-w-md bg-white dark:bg-[#141820] border-gray-200 dark:border-[#232a36]">
         <CardContent className="text-center py-8">
           <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
@@ -144,7 +144,7 @@ function GoogleCallbackContent() {
 export default function GoogleCallbackPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="min-h-dvh flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
         <Card className="w-full max-w-md bg-white dark:bg-[#141820] border-gray-200 dark:border-[#232a36]">
           <CardContent className="text-center py-8">
             <Loader2 className="w-12 h-12 text-orange-500 animate-spin mx-auto mb-4" />

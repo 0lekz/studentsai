@@ -13,10 +13,10 @@ export function SiteFooter() {
               <h3 className="font-semibold text-gray-900 dark:text-gray-100">StudentsAI</h3>
             </div>
             <p className="text-sm text-gray-600 leading-relaxed dark:text-gray-400">
-              A modern, extensible web-based AI toolkit designed specifically for students. Built with React, FastAPI, and powered by cutting-edge AI models.
+              A tutor that has read your course. Bring your slides, practice with feedback that cites them, and see what to study next.
             </p>
             <div className="flex items-center space-x-1 text-sm text-gray-600 dark:text-gray-400">
-              <span>MVP - Extensible & Open Source</span>
+              <span>Early access, open source</span>
             </div>
           </div>
 
@@ -26,19 +26,19 @@ export function SiteFooter() {
             <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
               <li className="flex items-center space-x-2">
                 <div className="w-1 h-1 bg-orange-600 rounded-full" />
-                <span>Markdown notes with backlinks</span>
+                <span>Practice with graded feedback</span>
               </li>
               <li className="flex items-center space-x-2">
                 <div className="w-1 h-1 bg-orange-600 rounded-full" />
-                <span>Knowledge graph visualization</span>
+                <span>Answers that cite your slides</span>
               </li>
               <li className="flex items-center space-x-2">
                 <div className="w-1 h-1 bg-orange-600 rounded-full" />
-                <span>Flashcards & spaced practice</span>
+                <span>Concept map with mastery</span>
               </li>
               <li className="flex items-center space-x-2">
                 <div className="w-1 h-1 bg-orange-600 rounded-full" />
-                <span>AI summaries & keyword suggestions</span>
+                <span>Spaced repetition across courses</span>
               </li>
             </ul>
           </div>
@@ -55,13 +55,13 @@ export function SiteFooter() {
               </div>
               <div className="space-y-1">
                 <div>FastAPI</div>
-                <div>OpenAI API (dev)</div>
                 <div>Python</div>
+                <div>PostgreSQL</div>
               </div>
             </div>
             <div className="flex space-x-3 pt-2">
               <a
-                href="https://github.com/Oleksiy-Zhukov/students-ai-toolkit"
+                href="https://github.com/0lekz/studentsai"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center space-x-1 text-sm text-gray-600 hover:text-orange-600 dark:text-gray-400 dark:hover:text-orange-400 transition-colors"
@@ -88,7 +88,7 @@ export function SiteFooter() {
               </p>
               <div className="flex flex-col space-y-2">
                 <a
-                  href="https://github.com/Oleksiy-Zhukov"
+                  href="https://github.com/0lekz"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center space-x-2 text-sm text-gray-600 hover:text-orange-600 dark:text-gray-400 dark:hover:text-orange-400 transition-colors"
@@ -130,9 +130,7 @@ export function SiteFooter() {
             <span>for students everywhere by Oleksii Zhukov</span>
           </div>
           <div className="flex items-center space-x-4 text-xs text-gray-600 dark:text-gray-400">
-            <span>Backend: OpenAI</span>
-            <div className="w-1 h-1 bg-gray-400 rounded-full" />
-            <span>© 2025 StudentsAI</span>
+            <span>© {new Date().getFullYear()} StudentsAI</span>
           </div>
         </div>
       </div>
