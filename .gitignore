@@ -76,7 +76,6 @@ __pycache__/
 *.pyo
 *.pyd
 .env.*
-!.env.example
 *.sqlite3
 node_modules/
 dist/
@@ -324,3 +323,7 @@ backend/download_models.py
 *.tmp
 *.temp
 .cache/
+
+# Example env files are documentation and stay tracked
+!.env.example
+!backend/.env.example
